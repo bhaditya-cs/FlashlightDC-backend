@@ -1,11 +1,11 @@
 package org.flashlightdc.flashlight.util;
 
 import org.flashlightdc.flashlight.dto.TermDto;
-import tools.jackson.core.JacksonException;
-import tools.jackson.core.JsonParser;
-import tools.jackson.databind.DeserializationContext;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ValueDeserializer;
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ValueDeserializer;
 
 import java.util.ArrayList;
 import java.util.List;
