@@ -4,11 +4,9 @@ package org.flashlightdc.flashlight.util;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import org.springframework.boot.jackson.JacksonComponent;
 
 import java.io.IOException;
 
-@JacksonComponent
 public class YesNoDeserializer extends JsonDeserializer<Boolean> {
     @Override
     public Boolean deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
