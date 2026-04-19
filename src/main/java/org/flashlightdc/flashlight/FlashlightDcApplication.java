@@ -1,6 +1,7 @@
 package org.flashlightdc.flashlight;
 
 import io.github.cdimascio.dotenv.Dotenv;
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
@@ -21,4 +22,9 @@ public class FlashlightDcApplication {
         SpringApplication.run(FlashlightDcApplication.class, args);
     }
 
+    @PostConstruct
+    void checkWallet() {
+        System.out.println("TNS_ADMIN: " + System.getProperty("oracle.net.tns_admin"));
+        System.out.println("Working dir: " + System.getProperty("user.dir"));
+    }
 }
