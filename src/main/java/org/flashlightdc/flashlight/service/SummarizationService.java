@@ -44,6 +44,7 @@ public class SummarizationService {
                         .summary(summary)
                         .modelUsed(modelName)
                         .status("SUCCESS")
+                        .format("markdown")
                         .build());
     }
 
@@ -52,10 +53,48 @@ public class SummarizationService {
             return "";
         StringBuilder context = new StringBuilder();
         context.append("Title: ").append(response.bill().title()).append("\n");
-        // In a real scenario, we might fetch the full text or official summary here
-        // For now, we use the title and any existing metadata
         context.append("Congress: ").append(response.bill().congress()).append("\n");
         context.append("Type: ").append(response.bill().type()).append("\n");
+        context.append("Origin Chamber: ").append(response.bill().originChamber()).append("\n");
+        context.append("Introduced Date: ").append(response.bill().introducedDate()).append("\n");
+
+        if (response.bill().latestAction() != null) {
+            context.append("Latest Action: ").append(response.bill().latestAction().text()).append("\n");
+            context.append("Latest Action Date: ").append(response.bill().latestAction().actionDate()).append("\n");
+        }
+
+        if (response.bill().policyArea() != null) {
+            context.append("Policy Area: ").append(response.bill().policyArea().name()).append("\n");
+        }
+
+        if (response.bill().sponsors() != null && !response.bill().sponsors().isEmpty()) {
+            context.append("Sponsors: ");
+            StringBuilder sponsorsList = new StringBuilder();
+            response.bill().sponsors().forEach(sponsor -> {
+                if (sponsor.fullName() != null && !sponsor.fullName().isEmpty()) {
+                    sponsorsList.append(sponsor.fullName());
+                    if (sponsor.party() != null && !sponsor.party().isEmpty()) {
+                        sponsorsList.append(" (").append(sponsor.party()).append(")");
+                    }
+                    sponsorsList.append(", ");
+                }
+            });
+            // Remove trailing comma and space if any sponsors added
+            if (sponsorsList.length() > 0) {
+                sponsorsList.delete(sponsorsList.length() - 2, sponsorsList.length());
+                context.append(sponsorsList);
+            }
+            context.append("\n");
+        }
+
+        if (response.bill().constitutionalAuthorityStatementText() != null) {
+            context.append("Constitutional Authority Statement: ")
+                   .append(response.bill().constitutionalAuthorityStatementText()).append("\n");
+        }
+
+        if (response.bill().url() != null) {
+            context.append("URL: ").append(response.bill().url()).append("\n");
+        }
         return context.toString();
     }
 }

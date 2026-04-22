@@ -14,4 +14,6 @@ public class SummaryResponse {
     private String summary;
     private String modelUsed;
     private String status;
+    @Builder.Default
+    private String format = "plaintext";
 }
