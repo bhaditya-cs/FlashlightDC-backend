@@ -1,7 +1,22 @@
-The "RELIEF Act" (H.R. 815) aims to help families facing high childcare and education costs, particularly in low-income urban areas.
+Here's a concise summary of H.R. 815, the RELIEF Act:
 
-**Main Impact and Major Changes:**
+## H.R. 815 - The RELIEF Act: Boosting After-School Support for Students in Need
 
-The bill proposes creating a **new federal grant program** through the Department of Education. This program would provide **$50 million annually** from 2026 to 2030 (a total of $250 million) to **non-profit organizations**.
+The **RELIEF Act** (Resources and Education for Liberty, Independence, and Empowerment for Families Act) aims to address the challenges families face with rising childcare and education costs, particularly in low-income urban areas.
 
-These non-profits would use the funds to offer **after-school tutoring and nutritional support** to K-12 students. To qualify, organizations must have been operating for at least three years, serve communities where at least 40% of residents live below the poverty line, and demonstrate measurable improvements in student academic achievement.
+**Main Impact & Changes:**
+
+This bill proposes a new federal grant program to funnel money directly to community organizations that support K-12 students after school. It targets areas with significant financial hardship and focuses on both academic and nutritional needs.
+
+**Key Provisions:**
+
+*   **Grant Program for Non-profits:** The **Secretary of Education** will establish a new grant program.
+    *   These grants will provide financial assistance to **non-profit organizations**.
+    *   The purpose of the grants is to fund **after-school tutoring and nutritional support** for K-12 students.
+*   **Targeted Communities:** To be eligible for a grant, organizations must serve a community where at least **40% of residents live below the federal poverty line**.
+*   **Eligibility Requirements:** Eligible non-profits must have:
+    *   Been in operation for at least **3 years**.
+    *   The ability to demonstrate **measurable outcomes related to student academic improvement**.
+*   **Funding:** The bill authorizes **$50,000,000** to be spent annually for fiscal years **2026 through 2030** to fund these grants.
+
+**In essence, the RELIEF Act seeks to empower local non-profits in financially struggling communities to provide vital after-school programs, offering both academic help and healthy food to K-12 students.**

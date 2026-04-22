@@ -20,8 +20,8 @@ public class VertexAiClient {
         return Mono.fromCallable(() -> {
             String prompt = "Summarize the following congressional bill text in a concise, " +
                     "easy-to-understand way for a general audience. Focus on the main impact and " +
-                    "any major changes it proposes:\n\n" + text;
-            
+                    "any major changes it proposes. Please format the summary using Markdown with bullet points, headings, and bold text where appropriate:\n\n" + text;
+
             GenerateContentResponse response = generativeModel.generateContent(prompt);
             return ResponseHandler.getText(response);
         }).subscribeOn(Schedulers.boundedElastic());
