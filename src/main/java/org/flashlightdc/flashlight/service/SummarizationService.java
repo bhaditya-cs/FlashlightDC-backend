@@ -1,5 +1,6 @@
 package org.flashlightdc.flashlight.service;
 
+import org.flashlightdc.flashlight.client.CongressApiClient;
 import org.flashlightdc.flashlight.client.VertexAiClient;
 import org.flashlightdc.flashlight.dto.BillDetailResponse;
 import org.flashlightdc.flashlight.dto.SummaryResponse;
@@ -11,13 +12,16 @@ import reactor.core.publisher.Mono;
 public class SummarizationService {
 
     private final BillService billService;
+    private final CongressApiClient congressApiClient;
     private final VertexAiClient vertexAiClient;
 
     @Value("${VERTEX_AI_MODEL_NAME:gemini-2.5-flash}")
     private String modelName;
 
-    public SummarizationService(BillService billService, VertexAiClient vertexAiClient) {
+    public SummarizationService(BillService billService, CongressApiClient congressApiClient,
+                                VertexAiClient vertexAiClient) {
         this.billService = billService;
+        this.congressApiClient = congressApiClient;
         this.vertexAiClient = vertexAiClient;
     }
 
@@ -25,11 +29,21 @@ public class SummarizationService {
         return billService.getBill(congress, type, number)
                 .flatMap(billDetail -> {
                     String context = extractContext(billDetail);
-                    return summarizeRawText(context)
+                    String billId = String.format("%d-%s-%d", congress, type, number);
+                    return congressApiClient.getBillTextVersions(congress, type, number)
+                            .map(text -> context + "\n\nFULL TEXT:\n" + text)
+                            .switchIfEmpty(congressApiClient.getBillSummariesText(congress, type, number)
+                                    .map(summary -> context + "\n\nCRS SUMMARY:\n" + summary))
+                            .flatMap(this::summarizeRawText)
                             .map(summaryResponse -> {
-                                summaryResponse.setBillId(String.format("%d-%s-%d", congress, type, number));
+                                summaryResponse.setBillId(billId);
                                 return summaryResponse;
-                            });
+                            })
+                            .switchIfEmpty(Mono.just(SummaryResponse.builder()
+                                    .billId(billId)
+                                    .status("NO_CONTENT")
+                                    .summary("No bill text or CRS summary available for summarization.")
+                                    .build()));
                 })
                 .onErrorResume(e -> Mono.just(SummaryResponse.builder()
                         .billId(String.format("%d-%s-%d", congress, type, number))
