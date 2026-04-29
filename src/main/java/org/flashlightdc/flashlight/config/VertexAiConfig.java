@@ -1,6 +1,7 @@
 package org.flashlightdc.flashlight.config;
 
 import com.google.cloud.vertexai.VertexAI;
+import com.google.cloud.vertexai.api.GenerationConfig;
 import com.google.cloud.vertexai.generativeai.GenerativeModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -40,6 +41,10 @@ public class VertexAiConfig {
 
     @Bean
     public GenerativeModel generativeModel(VertexAI vertexAI) {
-        return new GenerativeModel(modelName, vertexAI);
+        GenerationConfig config = GenerationConfig.newBuilder()
+                .setResponseMimeType("application/json")
+                .build();
+        return new GenerativeModel(modelName, vertexAI)
+                .withGenerationConfig(config);
     }
 }
