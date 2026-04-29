@@ -35,3 +35,6 @@ build/
 ### environment ###
 .env
 *.zip
+
+### MacOS ###
+.DS_Store
