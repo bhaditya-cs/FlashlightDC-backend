@@ -1,51 +1,99 @@
 package org.flashlightdc.flashlight.service;
 
+import org.flashlightdc.flashlight.client.CongressApiClient;
 import org.flashlightdc.flashlight.client.VertexAiClient;
 import org.flashlightdc.flashlight.dto.BillDetailResponse;
 import org.flashlightdc.flashlight.dto.SummaryResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.util.Optional;
+
 @Service
 public class SummarizationService {
 
+    private static final Logger log = LoggerFactory.getLogger(SummarizationService.class);
+
     private final BillService billService;
+    private final CongressApiClient congressApiClient;
     private final VertexAiClient vertexAiClient;
 
     @Value("${VERTEX_AI_MODEL_NAME:gemini-2.5-flash}")
     private String modelName;
 
-    public SummarizationService(BillService billService, VertexAiClient vertexAiClient) {
+    public SummarizationService(BillService billService, CongressApiClient congressApiClient,
+                                VertexAiClient vertexAiClient) {
         this.billService = billService;
+        this.congressApiClient = congressApiClient;
         this.vertexAiClient = vertexAiClient;
     }
 
     public Mono<SummaryResponse> summarizeBill(int congress, String type, int number) {
+        String billId = String.format("%d-%s-%d", congress, type, number);
+
         return billService.getBill(congress, type, number)
                 .flatMap(billDetail -> {
-                    String context = extractContext(billDetail);
-                    return summarizeRawText(context)
-                            .map(summaryResponse -> {
-                                summaryResponse.setBillId(String.format("%d-%s-%d", congress, type, number));
-                                return summaryResponse;
-                            });
-                })
-                .onErrorResume(e -> Mono.just(SummaryResponse.builder()
-                        .billId(String.format("%d-%s-%d", congress, type, number))
-                        .status("ERROR")
-                        .summary("Failed to generate summary: " + e.getMessage())
-                        .build()));
-    }
+                    log.debug("Metadata for {}: {}", billId, extractContext(billDetail));
 
-    public Mono<SummaryResponse> summarizeRawText(String text) {
-        return vertexAiClient.summarizeText(text)
-                .map(summary -> SummaryResponse.builder()
-                        .summary(summary)
-                        .modelUsed(modelName)
-                        .status("SUCCESS")
-                        .format("markdown")
-                        .build());
+                    Mono<Optional<String>> textMono = congressApiClient
+                            .getBillTextVersions(congress, type, number)
+                            .map(Optional::of)
+                            .defaultIfEmpty(Optional.empty());
+
+                    Mono<Optional<String>> summaryMono = congressApiClient
+                            .getBillSummariesText(congress, type, number)
+                            .map(Optional::of)
+                            .defaultIfEmpty(Optional.empty());
+
+                    return Mono.zip(textMono, summaryMono)
+                            .flatMap(tuple -> {
+                                Optional<String> billTextOpt = tuple.getT1();
+                                Optional<String> crsSummaryOpt = tuple.getT2();
+
+                                if (billTextOpt.isEmpty() && crsSummaryOpt.isEmpty()) {
+                                    return Mono.empty();
+                                }
+
+                                String billText = billTextOpt.orElse("Not available");
+                                String crsSummary = crsSummaryOpt.orElse("Not available");
+
+                                String fullPrompt = String.format(
+                                        vertexAiClient.getPromptTemplate(),
+                                        billText,
+                                        crsSummary
+                                );
+
+                                return vertexAiClient.summarizeText(fullPrompt)
+                                        .map(rawJson -> SummaryResponse.builder()
+                                                .billId(billId)
+                                                .summary(rawJson)
+                                                .modelUsed(modelName)
+                                                .status("SUCCESS")
+                                                .format("json")
+                                                .build());
+                            })
+                            .switchIfEmpty(Mono.just(SummaryResponse.builder()
+                                    .billId(billId)
+                                    .status("NO_CONTENT")
+                                    .summary("No bill text or CRS summary available for summarization.")
+                                    .build()));
+                })
+                .switchIfEmpty(Mono.just(SummaryResponse.builder()
+                        .billId(billId)
+                        .status("NO_CONTENT")
+                        .summary("Bill not found in database.")
+                        .build()))
+                .onErrorResume(e -> {
+                    log.error("Summarization failed for {}: {}", billId, e.getMessage(), e);
+                    return Mono.just(SummaryResponse.builder()
+                            .billId(billId)
+                            .status("ERROR")
+                            .summary("Failed to generate summary: " + e.getMessage())
+                            .build());
+                });
     }
 
     private String extractContext(BillDetailResponse response) {
@@ -79,7 +127,6 @@ public class SummarizationService {
                     sponsorsList.append(", ");
                 }
             });
-            // Remove trailing comma and space if any sponsors added
             if (sponsorsList.length() > 0) {
                 sponsorsList.delete(sponsorsList.length() - 2, sponsorsList.length());
                 context.append(sponsorsList);

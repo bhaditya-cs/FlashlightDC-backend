@@ -3,11 +3,17 @@ package org.flashlightdc.flashlight.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.flashlightdc.flashlight.dto.BillDetailResponse;
 import org.flashlightdc.flashlight.dto.BillListResponse;
+import org.flashlightdc.flashlight.dto.BillSummariesResponse;
+import org.flashlightdc.flashlight.dto.BillTextResponse;
 import org.flashlightdc.flashlight.dto.MemberDetailResponse;
 import org.flashlightdc.flashlight.dto.MemberListResponse;
+import org.flashlightdc.flashlight.dto.TextFormatDto;
+import org.flashlightdc.flashlight.dto.TextVersionDto;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 // client/CongressApiClient.java
@@ -15,6 +21,9 @@ import reactor.core.publisher.Mono;
 public class CongressApiClient {
 
     private final WebClient webClient;
+
+    @Value("${congress.api.key}")
+    private String apiKey;
 
     public CongressApiClient(WebClient congressWebClient) {
         this.webClient = congressWebClient;
@@ -88,6 +97,73 @@ public class CongressApiClient {
                     } catch (Exception e) {
                         throw new RuntimeException("Deserialization failed", e);
                     }
+                });
+    }
+
+    public Mono<String> getBillTextVersions(int congress, String type, int number) {
+        return webClient.get()
+                .uri(u -> u.path("/bill/{congress}/{type}/{number}/text")
+                        .build(congress, type.toLowerCase(), number))
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, r ->
+                        Mono.error(new CongressApiException("Bill text not found")))
+                .bodyToMono(String.class)
+                .map(raw -> {
+                    try {
+                        return new ObjectMapper().readValue(raw, BillTextResponse.class);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Deserialization failed", e);
+                    }
+                })
+                .flatMap(response -> {
+                    if (response.textVersions() == null || response.textVersions().isEmpty()) {
+                        return Mono.empty();
+                    }
+                    for (TextVersionDto version : response.textVersions()) {
+                        if (version.formats() != null) {
+                            for (TextFormatDto format : version.formats()) {
+                                if (format.type() != null && format.type().contains("Text")
+                                        && format.url() != null) {
+                                    String fullUrl = UriComponentsBuilder.fromHttpUrl(format.url())
+                                            .queryParam("api_key", apiKey)
+                                            .build()
+                                            .toUriString();
+                                    return WebClient.create()
+                                            .get()
+                                            .uri(fullUrl)
+                                            .retrieve()
+                                            .bodyToMono(String.class);
+                                }
+                            }
+                        }
+                    }
+                    return Mono.empty();
+                });
+    }
+
+    public Mono<String> getBillSummariesText(int congress, String type, int number) {
+        return webClient.get()
+                .uri(u -> u.path("/bill/{congress}/{type}/{number}/summaries")
+                        .build(congress, type.toLowerCase(), number))
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, r ->
+                        Mono.error(new CongressApiException("Bill summaries not found")))
+                .bodyToMono(String.class)
+                .map(raw -> {
+                    try {
+                        return new ObjectMapper().readValue(raw, BillSummariesResponse.class);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Deserialization failed", e);
+                    }
+                })
+                .flatMap(response -> {
+                    if (response.summaries() != null && !response.summaries().isEmpty()) {
+                        String text = response.summaries().get(0).text();
+                        if (text != null && !text.isBlank()) {
+                            return Mono.just(text);
+                        }
+                    }
+                    return Mono.empty();
                 });
     }
 }

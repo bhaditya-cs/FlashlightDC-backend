@@ -1,12 +1,12 @@
 package org.flashlightdc.flashlight.service;
 
 import io.github.cdimascio.dotenv.Dotenv;
+import org.flashlightdc.flashlight.client.VertexAiClient;
 import org.flashlightdc.flashlight.dto.SummaryResponse;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.test.StepVerifier;
 
@@ -20,11 +20,10 @@ import java.nio.file.Paths;
 public class SummarizationServiceIntegrationTest {
 
     @Autowired
-    private SummarizationService summarizationService;
+    private VertexAiClient vertexAiClient;
 
     @BeforeAll
     static void setup() {
-        // Load .env variables into System properties for local testing
         Dotenv dotenv = Dotenv.configure()
                 .ignoreIfMissing()
                 .load();
@@ -37,22 +36,28 @@ public class SummarizationServiceIntegrationTest {
 
     @Test
     void testSummarizeFromFile() throws IOException {
-        // 1. Read the example bill text file
         Path inputPath = Paths.get("src/test/resources/samples/bill_sample.txt");
         String billText = Files.readString(inputPath);
 
-        // 2. Call the AI service
-        summarizationService.summarizeRawText(billText)
+        String fullPrompt = String.format(
+                vertexAiClient.getPromptTemplate(),
+                billText,
+                "Not available"
+        );
+
+        vertexAiClient.summarizeText(fullPrompt)
                 .as(StepVerifier::create)
-                .assertNext(response -> {
-                    assert response != null;
-                    assert "SUCCESS".equals(response.getStatus());
-                    
-                    // 3. Write output to a text file
+                .assertNext(rawJson -> {
+                    assert rawJson != null;
+                    assert rawJson.contains("bill_number");
+                    assert rawJson.contains("sections");
+                    assert rawJson.contains("tldr");
+                    assert rawJson.contains("hook");
+
                     try {
-                        Path outputPath = Paths.get("src/test/resources/output/bill_summary_output.txt");
+                        Path outputPath = Paths.get("src/test/resources/output/bill_summary_output.json");
                         Files.createDirectories(outputPath.getParent());
-                        Files.writeString(outputPath, response.getSummary());
+                        Files.writeString(outputPath, rawJson);
                         System.out.println("Summary written to: " + outputPath.toAbsolutePath());
                     } catch (IOException e) {
                         throw new RuntimeException(e);
