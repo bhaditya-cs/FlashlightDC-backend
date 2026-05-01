@@ -50,7 +50,7 @@ public class IngestionJob {
     private String errorMessage;
 
     public enum JobStatus { RUNNING, PAUSED, COMPLETED, FAILED }
-    public enum JobPhase  { LIST, DETAIL }
+    public enum JobPhase  { LIST, DETAIL, SUMMARY }
 
 
 }

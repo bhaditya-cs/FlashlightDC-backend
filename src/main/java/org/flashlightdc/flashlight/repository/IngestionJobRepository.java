@@ -24,4 +24,12 @@ public interface IngestionJobRepository extends JpaRepository<IngestionJob, Long
     Optional<IngestionJob> findByJobTypeAndCongressAndStatus(
             String jobType, Integer congress, IngestionJob.JobStatus status
     );
+
+    Optional<IngestionJob> findByJobTypeAndCongressAndPhase(
+            String jobType, Integer congress, IngestionJob.JobPhase phase
+    );
+
+    void deleteByJobTypeAndCongressAndPhase(
+            String jobType, Integer congress, IngestionJob.JobPhase phase
+    );
 }

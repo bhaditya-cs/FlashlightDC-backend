@@ -73,7 +73,14 @@ public class SummarizationService {
                                                 .modelUsed(modelName)
                                                 .status("SUCCESS")
                                                 .format("json")
-                                                .build());
+                                                .build())
+                                        .doOnNext(response -> {
+                                            if ("SUCCESS".equals(response.getStatus())) {
+                                                billService.saveSummary(congress, type,
+                                                        String.valueOf(number),
+                                                        response.getSummary());
+                                            }
+                                        });
                             })
                             .switchIfEmpty(Mono.just(SummaryResponse.builder()
                                     .billId(billId)

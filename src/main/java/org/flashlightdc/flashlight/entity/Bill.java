@@ -48,6 +48,13 @@ public class Bill {
     @Column(name = "url", length = 500)
     private String url;
 
+    @Lob
+    @Column(name = "summary")
+    private String summary;
+
+    @Column(name = "summary_updated_at")
+    private LocalDateTime summaryUpdatedAt;
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 

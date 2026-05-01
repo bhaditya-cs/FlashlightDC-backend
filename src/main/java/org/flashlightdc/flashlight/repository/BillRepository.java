@@ -26,4 +26,6 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
     Page<Bill> findByCongress(Integer congress, Pageable pageable);
 
     Page<Bill> findByPolicyAreaAndCongress(String policyArea, Integer congress, Pageable pageable);
+
+    Page<Bill> findByCongressAndSummaryIsNull(Integer congress, Pageable pageable);
 }
