@@ -9,12 +9,15 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class FlashlightDcApplication {
 
     public static void main(String[] args) {
-        // Load .env variables into System properties
+        // Load .env into system properties before Spring prepares the environment.
+        // For @SpringBootTest, DotenvEnvironmentPostProcessor handles this instead,
+        // since the static block here runs too late (Spring resolves property
+        // placeholders during prepareEnvironment, before this class is initialized).
         Dotenv dotenv = Dotenv.configure()
                 .ignoreIfMissing()
                 .load();
         dotenv.entries().forEach(entry -> {
-            if (System.getProperty(entry.getKey()) == null && System.getenv(entry.getKey()) == null) {
+            if (System.getProperty(entry.getKey()) == null) {
                 System.setProperty(entry.getKey(), entry.getValue());
             }
         });
