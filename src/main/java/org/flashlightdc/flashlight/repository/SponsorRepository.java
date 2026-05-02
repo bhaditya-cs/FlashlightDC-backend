@@ -12,4 +12,6 @@ public interface SponsorRepository extends JpaRepository<Sponsor, Long> {
     List<Sponsor> findByBill_Id(Long billId);
 
     List<Sponsor> findByMember_BioguideId(String bioguideId);
+
+    List<Sponsor> findByBill_IdAndMember_BioguideId(Long billId, String bioguideId);
 }

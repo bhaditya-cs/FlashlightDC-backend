@@ -116,12 +116,13 @@ public class BillService {
                         stub.setUpdatedAt(LocalDateTime.now());
                         return memberRepository.save(stub);
                     });
-
-            Sponsor sponsor = new Sponsor();
-            sponsor.setBill(bill);
-            sponsor.setMember(member);
-            sponsor.setByRequest(sponsorDto.isByRequest());
-            sponsorRepository.save(sponsor);
+            if (sponsorRepository.findByBill_IdAndMember_BioguideId(bill.getId(), sponsorDto.bioguideId()).isEmpty()) {
+                Sponsor sponsor = new Sponsor();
+                sponsor.setBill(bill);
+                sponsor.setMember(member);
+                sponsor.setByRequest(sponsorDto.isByRequest());
+                sponsorRepository.save(sponsor);
+            }
         }
     }
 
