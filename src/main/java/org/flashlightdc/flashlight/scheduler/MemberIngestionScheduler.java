@@ -8,18 +8,25 @@ import org.flashlightdc.flashlight.repository.IngestionJobRepository;
 import org.flashlightdc.flashlight.service.MemberService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Component
 public class MemberIngestionScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(MemberIngestionScheduler.class);
     private static final int PAGE_SIZE = 250;
-    private static final int CONGRESS = 119;
     private static final int DELAY_MS = 1000;
+
+    @Value("${ingestion.congress}")
+    private int congress;
+
+    @Value("${ingestion.member.refresh:false}")
+    private boolean refresh;
 
     private final CongressApiClient congressApiClient;
     private final MemberService memberService;
@@ -37,9 +44,14 @@ public class MemberIngestionScheduler {
     public void ingestMembers() {
         recoverStuckJobs();
 
+        if (refresh) {
+            log.info("Refresh enabled — deleting old ingestion jobs for MEMBERS congress {}", congress);
+            ingestionJobRepository.deleteByJobTypeAndCongress("MEMBERS", congress);
+        }
+
         boolean alreadyComplete = ingestionJobRepository
                 .existsByJobTypeAndCongressAndStatusAndPhase(
-                        "MEMBERS", CONGRESS,
+                        "MEMBERS", congress,
                         IngestionJob.JobStatus.COMPLETED,
                         IngestionJob.JobPhase.LIST
                 );
@@ -49,11 +61,11 @@ public class MemberIngestionScheduler {
             return;
         }
 
-        log.info("Starting member ingestion for congress {}", CONGRESS);
+        log.info("Starting member ingestion for congress {}", congress);
 
         IngestionJob job = ingestionJobRepository
                 .findByJobTypeAndCongressAndStatusAndPhase(
-                        "MEMBERS", CONGRESS,
+                        "MEMBERS", congress,
                         IngestionJob.JobStatus.PAUSED,
                         IngestionJob.JobPhase.LIST
                 )
@@ -75,27 +87,28 @@ public class MemberIngestionScheduler {
     }
 
     private void recoverStuckJobs() {
-        ingestionJobRepository
+        List<IngestionJob> stuckJobs = ingestionJobRepository
                 .findByJobTypeAndCongressAndStatus(
-                        "MEMBERS", CONGRESS, IngestionJob.JobStatus.RUNNING
-                )
-                .ifPresent(job -> {
-                    log.warn("Found stuck RUNNING member job at offset {}, resetting to PAUSED",
-                            job.getCurrentOffset());
-                    job.setStatus(IngestionJob.JobStatus.PAUSED);
-                    job.setUpdatedAt(LocalDateTime.now());
-                    ingestionJobRepository.save(job);
-                });
+                        "MEMBERS", congress, IngestionJob.JobStatus.RUNNING
+                );
+
+        for (IngestionJob job : stuckJobs) {
+            log.warn("Found stuck RUNNING member job id={} at offset {}, resetting to PAUSED",
+                    job.getId(), job.getCurrentOffset());
+            job.setStatus(IngestionJob.JobStatus.PAUSED);
+            job.setUpdatedAt(LocalDateTime.now());
+            ingestionJobRepository.save(job);
+        }
     }
 
     private void runMemberIngestion(IngestionJob job) throws InterruptedException {
         int offset = job.getCurrentOffset();
 
         while (true) {
-            log.info("MEMBERS — fetching offset={} congress={}", offset, CONGRESS);
+            log.info("MEMBERS — fetching offset={} congress={}", offset, congress);
 
             MemberListResponse response = congressApiClient
-                    .getMembers(CONGRESS, PAGE_SIZE, offset)
+                    .getMembers(congress, PAGE_SIZE, offset)
                     .block();
 
             if (response == null || response.members() == null || response.members().isEmpty()) {
@@ -144,7 +157,7 @@ public class MemberIngestionScheduler {
     private IngestionJob createNewJob() {
         IngestionJob job = new IngestionJob();
         job.setJobType("MEMBERS");
-        job.setCongress(CONGRESS);
+        job.setCongress(congress);
         job.setPhase(IngestionJob.JobPhase.LIST);
         job.setCurrentOffset(0);
         job.setStatus(IngestionJob.JobStatus.PAUSED);

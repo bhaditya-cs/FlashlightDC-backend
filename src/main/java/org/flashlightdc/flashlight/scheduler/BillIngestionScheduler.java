@@ -10,12 +10,14 @@ import org.flashlightdc.flashlight.repository.IngestionJobRepository;
 import org.flashlightdc.flashlight.service.BillService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Component
 public class BillIngestionScheduler {
@@ -23,8 +25,13 @@ public class BillIngestionScheduler {
     private static final Logger log = LoggerFactory.getLogger(BillIngestionScheduler.class);
     private static final int PAGE_SIZE = 250;
     private static final int DETAIL_PAGE_SIZE = 50;
-    private static final int CONGRESS = 119;
     private static final int DELAY_MS = 1000;
+
+    @Value("${ingestion.congress}")
+    private int congress;
+
+    @Value("${ingestion.bill.refresh:false}")
+    private boolean refresh;
 
     private final CongressApiClient congressApiClient;
     private final BillService billService;
@@ -42,9 +49,14 @@ public class BillIngestionScheduler {
     public void ingest() {
         recoverStuckJobs();
 
+        if (refresh) {
+            log.info("Refresh enabled — deleting old ingestion jobs for BILLS congress {}", congress);
+            ingestionJobRepository.deleteByJobTypeAndCongress("BILLS", congress);
+        }
+
         boolean detailComplete = ingestionJobRepository
                 .existsByJobTypeAndCongressAndStatusAndPhase(
-                        "BILLS", CONGRESS,
+                        "BILLS", congress,
                         IngestionJob.JobStatus.COMPLETED,
                         IngestionJob.JobPhase.DETAIL
                 );
@@ -56,12 +68,12 @@ public class BillIngestionScheduler {
 
         boolean listComplete = !ingestionJobRepository
                 .existsByJobTypeAndCongressAndStatusAndPhase(
-                        "BILLS", CONGRESS,
+                        "BILLS", congress,
                         IngestionJob.JobStatus.PAUSED,
                         IngestionJob.JobPhase.LIST
                 ) && ingestionJobRepository
                 .existsByJobTypeAndCongressAndStatusAndPhase(
-                        "BILLS", CONGRESS,
+                        "BILLS", congress,
                         IngestionJob.JobStatus.COMPLETED,
                         IngestionJob.JobPhase.LIST
                 );
@@ -74,25 +86,26 @@ public class BillIngestionScheduler {
     }
 
     private void recoverStuckJobs() {
-        ingestionJobRepository
+        List<IngestionJob> stuckJobs = ingestionJobRepository
                 .findByJobTypeAndCongressAndStatus(
-                        "BILLS", CONGRESS, IngestionJob.JobStatus.RUNNING
-                )
-                .ifPresent(job -> {
-                    log.warn("Found stuck RUNNING job at offset {}, resetting to PAUSED",
-                            job.getCurrentOffset());
-                    job.setStatus(IngestionJob.JobStatus.PAUSED);
-                    job.setUpdatedAt(LocalDateTime.now());
-                    ingestionJobRepository.save(job);
-                });
+                        "BILLS", congress, IngestionJob.JobStatus.RUNNING
+                );
+
+        for (IngestionJob job : stuckJobs) {
+            log.warn("Found stuck RUNNING job id={} at offset {}, resetting to PAUSED",
+                    job.getId(), job.getCurrentOffset());
+            job.setStatus(IngestionJob.JobStatus.PAUSED);
+            job.setUpdatedAt(LocalDateTime.now());
+            ingestionJobRepository.save(job);
+        }
     }
 
     private void runPhase(IngestionJob.JobPhase phase) {
-        log.info("Starting BILLS {} phase for congress {}", phase, CONGRESS);
+        log.info("Starting BILLS {} phase for congress {}", phase, congress);
 
         IngestionJob job = ingestionJobRepository
                 .findByJobTypeAndCongressAndStatusAndPhase(
-                        "BILLS", CONGRESS,
+                        "BILLS", congress,
                         IngestionJob.JobStatus.PAUSED,
                         phase
                 )
@@ -121,10 +134,10 @@ public class BillIngestionScheduler {
         int offset = job.getCurrentOffset();
 
         while (true) {
-            log.info("LIST phase — fetching offset={} congress={}", offset, CONGRESS);
+            log.info("LIST phase — fetching offset={} congress={}", offset, congress);
 
             BillListResponse response = congressApiClient
-                    .getBills(CONGRESS, PAGE_SIZE, offset)
+                    .getBills(congress, PAGE_SIZE, offset)
                     .block();
 
             if (response == null || response.bills() == null || response.bills().isEmpty()) {
@@ -171,7 +184,7 @@ public class BillIngestionScheduler {
             log.info("DETAIL phase — processing bills from offset={}", offset);
 
             Page<Bill> page = billService.findByCongressPaginated(
-                    CONGRESS, PageRequest.of(offset / DETAIL_PAGE_SIZE, DETAIL_PAGE_SIZE)
+                    congress, PageRequest.of(offset / DETAIL_PAGE_SIZE, DETAIL_PAGE_SIZE)
             );
 
             if (page.isEmpty()) {
@@ -229,7 +242,7 @@ public class BillIngestionScheduler {
     private IngestionJob createNewJob(IngestionJob.JobPhase phase) {
         IngestionJob job = new IngestionJob();
         job.setJobType("BILLS");
-        job.setCongress(CONGRESS);
+        job.setCongress(congress);
         job.setPhase(phase);
         job.setCurrentOffset(0);
         job.setStatus(IngestionJob.JobStatus.PAUSED);

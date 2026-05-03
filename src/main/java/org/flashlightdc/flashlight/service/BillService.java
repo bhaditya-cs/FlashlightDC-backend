@@ -96,6 +96,7 @@ public class BillService {
         bill = billRepository.save(bill);
 
         if (dto.sponsors() != null) {
+            sponsorRepository.deleteByBillId(bill.getId());
             persistSponsors(bill, dto.sponsors());
         }
 

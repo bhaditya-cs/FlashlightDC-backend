@@ -4,6 +4,7 @@ import org.flashlightdc.flashlight.entity.IngestionJob;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -21,7 +22,7 @@ public interface IngestionJobRepository extends JpaRepository<IngestionJob, Long
             IngestionJob.JobPhase phase
     );
 
-    Optional<IngestionJob> findByJobTypeAndCongressAndStatus(
+    List<IngestionJob> findByJobTypeAndCongressAndStatus(
             String jobType, Integer congress, IngestionJob.JobStatus status
     );
 
@@ -32,4 +33,6 @@ public interface IngestionJobRepository extends JpaRepository<IngestionJob, Long
     void deleteByJobTypeAndCongressAndPhase(
             String jobType, Integer congress, IngestionJob.JobPhase phase
     );
+
+    void deleteByJobTypeAndCongress(String jobType, Integer congress);
 }
