@@ -10,6 +10,8 @@ import org.flashlightdc.flashlight.entity.Member;
 import org.flashlightdc.flashlight.entity.Term;
 import org.flashlightdc.flashlight.repository.MemberRepository;
 import org.flashlightdc.flashlight.repository.TermRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -89,6 +91,14 @@ public class MemberService {
                 })
                 .toList();
         termRepository.saveAll(termEntities);
+    }
+
+    public Member saveMember(MemberDetailResponse detail) {
+        return saveMember(detail.member);
+    }
+
+    public Page<Member> findAllPaginated(Pageable pageable) {
+        return memberRepository.findAll(pageable);
     }
 
     public List<Member> findAll() {

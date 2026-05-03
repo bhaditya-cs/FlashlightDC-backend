@@ -2,6 +2,7 @@ package org.flashlightdc.flashlight.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.Fetch;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -48,9 +49,16 @@ public class Bill {
     @Column(name = "url", length = 500)
     private String url;
 
+    @Lob
+    @Column(name = "summary")
+    private String summary;
+
+    @Column(name = "summary_updated_at")
+    private LocalDateTime summaryUpdatedAt;
+
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Sponsor> sponsors = new ArrayList<>();
 }

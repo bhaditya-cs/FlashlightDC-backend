@@ -73,7 +73,14 @@ public class SummarizationService {
                                                 .modelUsed(modelName)
                                                 .status("SUCCESS")
                                                 .format("json")
-                                                .build());
+                                                .build())
+                                        .doOnNext(response -> {
+                                            if ("SUCCESS".equals(response.getStatus())) {
+                                                billService.saveSummary(congress, type,
+                                                        String.valueOf(number),
+                                                        response.getSummary());
+                                            }
+                                        });
                             })
                             .switchIfEmpty(Mono.just(SummaryResponse.builder()
                                     .billId(billId)
@@ -94,6 +101,24 @@ public class SummarizationService {
                             .summary("Failed to generate summary: " + e.getMessage())
                             .build());
                 });
+    }
+
+    /**
+     * Blocking wrapper for scheduler use. Takes bill data from DB and
+     * re-fetches text/CRS from Congress.gov API for Vertex AI summarization.
+     */
+    public SummaryResponse summarizeBillBlocking(int congress, String type, String billNumber) {
+        try {
+            int number = Integer.parseInt(billNumber);
+            return summarizeBill(congress, type, number).block();
+        } catch (NumberFormatException e) {
+            log.warn("Cannot summarize bill with non-numeric number: {}-{}-{}", congress, type, billNumber);
+            return SummaryResponse.builder()
+                    .billId(String.format("%d-%s-%s", congress, type, billNumber))
+                    .status("ERROR")
+                    .summary("Invalid bill number: " + billNumber)
+                    .build();
+        }
     }
 
     private String extractContext(BillDetailResponse response) {

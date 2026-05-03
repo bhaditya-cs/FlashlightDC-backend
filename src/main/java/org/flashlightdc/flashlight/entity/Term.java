@@ -1,5 +1,6 @@
 package org.flashlightdc.flashlight.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -23,5 +24,6 @@ public class Term {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "bioguide_id")
+    @JsonIgnore
     private Member member;
 }

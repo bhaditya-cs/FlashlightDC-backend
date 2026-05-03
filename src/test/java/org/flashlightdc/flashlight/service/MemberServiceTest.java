@@ -128,6 +128,24 @@ class MemberServiceTest {
     }
 
     @Test
+    void saveMember_FromDetailResponse_ShouldDelegateToMemberDto() {
+        MemberDetailResponse detailResponse = new MemberDetailResponse();
+        detailResponse.member = mockMemberDto;
+
+        when(memberRepository.findById("W000790"))
+                .thenReturn(Optional.empty());
+        when(memberRepository.save(any(Member.class)))
+                .thenReturn(mockMember);
+        when(termRepository.findByMember_BioguideId("W000790"))
+                .thenReturn(List.of());
+
+        Member result = memberService.saveMember(detailResponse);
+
+        assertThat(result.getBioguideId()).isEqualTo("W000790");
+        verify(memberRepository, times(1)).save(any(Member.class));
+    }
+
+    @Test
     void saveMember_ShouldSaveTerms() {
         when(memberRepository.findById("W000790"))
                 .thenReturn(Optional.empty());

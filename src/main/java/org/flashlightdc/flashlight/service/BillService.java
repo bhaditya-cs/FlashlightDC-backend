@@ -6,9 +6,13 @@ import org.flashlightdc.flashlight.dto.BillDetailDto;
 import org.flashlightdc.flashlight.dto.BillDetailResponse;
 import org.flashlightdc.flashlight.dto.BillListResponse;
 import org.flashlightdc.flashlight.dto.BillSummaryDto;
+import org.flashlightdc.flashlight.dto.SponsorDto;
 import org.flashlightdc.flashlight.entity.Bill;
+import org.flashlightdc.flashlight.entity.Member;
+import org.flashlightdc.flashlight.entity.Sponsor;
 import org.flashlightdc.flashlight.repository.BillRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.flashlightdc.flashlight.repository.MemberRepository;
+import org.flashlightdc.flashlight.repository.SponsorRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,11 +26,16 @@ import java.util.Optional;
 public class BillService {
 
     private final CongressApiClient congressApiClient;
-    private BillRepository billRepository;
+    private final BillRepository billRepository;
+    private final SponsorRepository sponsorRepository;
+    private final MemberRepository memberRepository;
 
-    public BillService(CongressApiClient congressApiClient, BillRepository billRepository) {
+    public BillService(CongressApiClient congressApiClient, BillRepository billRepository,
+                       SponsorRepository sponsorRepository, MemberRepository memberRepository) {
         this.congressApiClient = congressApiClient;
         this.billRepository = billRepository;
+        this.sponsorRepository = sponsorRepository;
+        this.memberRepository = memberRepository;
     }
 
     public Mono<BillListResponse> getBills(int congress, int limit, int offset) {
@@ -84,7 +93,52 @@ public class BillService {
             bill.setPolicyArea(dto.policyArea().name());
         }
 
-        return billRepository.save(bill);
+        bill = billRepository.save(bill);
+
+        if (dto.sponsors() != null) {
+            sponsorRepository.deleteByBillId(bill.getId());
+            persistSponsors(bill, dto.sponsors());
+        }
+
+        return bill;
+    }
+
+    private void persistSponsors(Bill bill, List<SponsorDto> sponsors) {
+        for (SponsorDto sponsorDto : sponsors) {
+            Member member = memberRepository.findById(sponsorDto.bioguideId())
+                    .orElseGet(() -> {
+                        Member stub = new Member();
+                        stub.setBioguideId(sponsorDto.bioguideId());
+                        stub.setName(sponsorDto.fullName());
+                        stub.setPartyName(sponsorDto.party());
+                        stub.setState(sponsorDto.state());
+                        stub.setDistrict(sponsorDto.district());
+                        stub.setUrl(sponsorDto.url());
+                        stub.setUpdatedAt(LocalDateTime.now());
+                        return memberRepository.save(stub);
+                    });
+            if (sponsorRepository.findByBill_IdAndMember_BioguideId(bill.getId(), sponsorDto.bioguideId()).isEmpty()) {
+                Sponsor sponsor = new Sponsor();
+                sponsor.setBill(bill);
+                sponsor.setMember(member);
+                sponsor.setByRequest(sponsorDto.isByRequest());
+                sponsorRepository.save(sponsor);
+            }
+        }
+    }
+
+    @Transactional
+    public void saveSummary(Integer congress, String type, String number, String summary) {
+        billRepository.findByCongressAndBillTypeAndBillNumber(congress, type, number)
+                .ifPresent(bill -> {
+                    bill.setSummary(summary);
+                    bill.setSummaryUpdatedAt(LocalDateTime.now());
+                    billRepository.save(bill);
+                });
+    }
+
+    public Page<Bill> findByCongressAndSummaryIsNull(Integer congress, Pageable pageable) {
+        return billRepository.findByCongressAndSummaryIsNull(congress, pageable);
     }
 
     public List<Bill> findByCongress(Integer congress) {

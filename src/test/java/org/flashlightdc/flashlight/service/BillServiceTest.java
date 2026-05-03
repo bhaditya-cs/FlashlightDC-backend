@@ -4,7 +4,10 @@ import org.flashlightdc.flashlight.client.CongressApiClient;
 import org.flashlightdc.flashlight.dto.*;
 
 import org.flashlightdc.flashlight.entity.Bill;
+import org.flashlightdc.flashlight.entity.Member;
+import org.flashlightdc.flashlight.entity.Sponsor;
 import org.flashlightdc.flashlight.repository.BillRepository;
+import org.flashlightdc.flashlight.repository.MemberRepository;
 import org.flashlightdc.flashlight.repository.SponsorRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +40,9 @@ class BillServiceTest {
 
     @Mock
     private SponsorRepository sponsorRepository;
+
+    @Mock
+    private MemberRepository memberRepository;
 
     @InjectMocks
     private BillService billService;
@@ -181,6 +187,75 @@ class BillServiceTest {
 
         assertThat(result).isNotNull();
         verify(billRepository, times(1)).save(any(Bill.class));
+    }
+
+    @Test
+    void saveBill_FromDetailDto_ShouldPersistSponsors() {
+        SponsorDto sponsorDto = new SponsorDto(
+                "W000790", "Warnock, Raphael G.", "Democratic",
+                "Georgia", null, false,
+                "https://api.congress.gov/v3/member/W000790"
+        );
+        BillDetailDto dtoWithSponsors = new BillDetailDto(
+                119, "1", "hr", "Test Bill", "House",
+                "2024-01-01",
+                new LatestActionDto("2024-01-02", "Referred to committee", null),
+                List.of(sponsorDto), null,
+                new PolicyAreaDto("Healthcare"),
+                null, null,
+                "https://api.congress.gov/v3/bill/119/hr/1"
+        );
+
+        when(billRepository.findByCongressAndBillTypeAndBillNumber(119, "hr", "1"))
+                .thenReturn(Optional.empty());
+        when(billRepository.save(any(Bill.class)))
+                .thenReturn(mockBill);
+        when(memberRepository.findById("W000790"))
+                .thenReturn(Optional.empty());
+        when(memberRepository.save(any(Member.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(sponsorRepository.save(any(Sponsor.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Bill result = billService.saveBill(dtoWithSponsors);
+
+        assertThat(result).isNotNull();
+        verify(memberRepository, times(1)).findById("W000790");
+        verify(memberRepository, times(1)).save(any(Member.class));
+        verify(sponsorRepository, times(1)).save(any(Sponsor.class));
+    }
+
+    @Test
+    void saveSummary_ShouldPersistSummaryText() {
+        when(billRepository.findByCongressAndBillTypeAndBillNumber(119, "hr", "1"))
+                .thenReturn(Optional.of(mockBill));
+
+        billService.saveSummary(119, "hr", "1", "Summary text");
+
+        assertThat(mockBill.getSummary()).isEqualTo("Summary text");
+        assertThat(mockBill.getSummaryUpdatedAt()).isNotNull();
+        verify(billRepository, times(1)).save(mockBill);
+    }
+
+    @Test
+    void saveSummary_WhenBillNotFound_ShouldNotThrow() {
+        when(billRepository.findByCongressAndBillTypeAndBillNumber(119, "hr", "1"))
+                .thenReturn(Optional.empty());
+
+        billService.saveSummary(119, "hr", "1", "Summary text");
+
+        verify(billRepository, never()).save(any(Bill.class));
+    }
+
+    @Test
+    void findByCongressAndSummaryIsNull_ShouldReturnPage() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(billRepository.findByCongressAndSummaryIsNull(119, pageable))
+                .thenReturn(new PageImpl<>(List.of(mockBill), pageable, 1));
+
+        Page<Bill> result = billService.findByCongressAndSummaryIsNull(119, pageable);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
     }
 
     @Test
