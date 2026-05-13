@@ -57,7 +57,7 @@ public class BillIngestionScheduler {
         boolean detailComplete = ingestionJobRepository
                 .existsByJobTypeAndCongressAndStatusAndPhase(
                         "BILLS", congress,
-                        IngestionJob.JobStatus.COMPLETED,
+                        IngestionJob.JobStatus.RUNNING,
                         IngestionJob.JobPhase.DETAIL
                 );
 
