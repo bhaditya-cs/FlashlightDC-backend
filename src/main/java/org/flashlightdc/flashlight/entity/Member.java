@@ -48,5 +48,8 @@ public class Member {
     @JsonManagedReference
     private List<Sponsor> sponsorships = new ArrayList<>();
 
+    @OneToMany(mappedBy = "member", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @JsonManagedReference
+    private List<Cosponsor> cosponsorships = new ArrayList<>();
 
 }

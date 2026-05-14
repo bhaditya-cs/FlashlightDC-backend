@@ -4,6 +4,7 @@ import org.flashlightdc.flashlight.client.CongressApiClient;
 import org.flashlightdc.flashlight.dto.BillDetailResponse;
 import org.flashlightdc.flashlight.dto.BillListResponse;
 import org.flashlightdc.flashlight.dto.BillSummaryDto;
+import org.flashlightdc.flashlight.dto.CosponsorListResponse;
 import org.flashlightdc.flashlight.entity.Bill;
 import org.flashlightdc.flashlight.entity.IngestionJob;
 import org.flashlightdc.flashlight.repository.IngestionJobRepository;
@@ -202,6 +203,30 @@ public class BillIngestionScheduler {
 
                     if (detail != null && detail.bill() != null) {
                         billService.saveBill(detail.bill());
+                    }
+
+                    Thread.sleep(DELAY_MS);
+
+                    // fetch and save cosponsors
+                    try {
+                        CosponsorListResponse cosponsorResponse = congressApiClient
+                                .getCosponsors(bill.getCongress(), bill.getBillType(), billNumber)
+                                .block();
+                        log.info("test {}", cosponsorResponse);
+                        if (cosponsorResponse != null && cosponsorResponse.cosponsors() != null) {
+                            billService.saveCosponsors(
+                                    bill.getCongress(),
+                                    bill.getBillType(),
+                                    bill.getBillNumber(),
+                                    cosponsorResponse.cosponsors()
+                            );
+                            log.info("Saved {} cosponsors for bill {}/{}/{}",
+                                    cosponsorResponse.cosponsors().size(),
+                                    bill.getCongress(), bill.getBillType(), bill.getBillNumber());
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed cosponsor fetch for bill {}/{}/{}",
+                                bill.getCongress(), bill.getBillType(), bill.getBillNumber(), e);
                     }
 
                     Thread.sleep(DELAY_MS);

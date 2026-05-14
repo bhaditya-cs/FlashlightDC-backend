@@ -61,4 +61,7 @@ public class Bill {
 
     @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<Sponsor> sponsors = new ArrayList<>();
+
+    @OneToMany(mappedBy = "bill", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Cosponsor> cosponsors = new ArrayList<>();
 }

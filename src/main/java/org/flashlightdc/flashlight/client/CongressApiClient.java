@@ -1,20 +1,16 @@
 package org.flashlightdc.flashlight.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.flashlightdc.flashlight.dto.BillDetailResponse;
-import org.flashlightdc.flashlight.dto.BillListResponse;
-import org.flashlightdc.flashlight.dto.BillSummariesResponse;
-import org.flashlightdc.flashlight.dto.BillTextResponse;
-import org.flashlightdc.flashlight.dto.MemberDetailResponse;
-import org.flashlightdc.flashlight.dto.MemberListResponse;
-import org.flashlightdc.flashlight.dto.TextFormatDto;
-import org.flashlightdc.flashlight.dto.TextVersionDto;
+import org.flashlightdc.flashlight.dto.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+
+import java.time.Duration;
 
 // client/CongressApiClient.java
 @Component
@@ -164,6 +160,32 @@ public class CongressApiClient {
                         }
                     }
                     return Mono.empty();
+                });
+    }
+
+    public Mono<CosponsorListResponse> getCosponsors(int congress, String type, int number) {
+        return webClient.get()
+                .uri(u -> u.path("/bill/{congress}/{type}/{number}/cosponsors")
+                        .build(congress, type.toLowerCase(), number))
+                .retrieve()
+                .onStatus(status -> status.value() == 429, r ->
+                        Mono.error(new CongressApiException("Rate limited")))
+                .onStatus(HttpStatusCode::is4xxClientError, r ->
+                        Mono.error(new CongressApiException("Cosponsors not found")))
+                .onStatus(HttpStatusCode::is5xxServerError, r ->
+                        Mono.error(new CongressApiException("Congress API unavailable")))
+                .bodyToMono(String.class)
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(30))
+                        .filter(e -> e instanceof CongressApiException &&
+                                e.getMessage().equals("Rate limited"))
+                        )
+                .map(raw -> {
+                    try {
+                        System.out.println(raw);
+                        return new ObjectMapper().readValue(raw, CosponsorListResponse.class);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Deserialization failed", e);
+                    }
                 });
     }
 }
