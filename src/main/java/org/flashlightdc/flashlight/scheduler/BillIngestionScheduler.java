@@ -5,10 +5,12 @@ import org.flashlightdc.flashlight.dto.BillDetailResponse;
 import org.flashlightdc.flashlight.dto.BillListResponse;
 import org.flashlightdc.flashlight.dto.BillSummaryDto;
 import org.flashlightdc.flashlight.dto.CosponsorListResponse;
+import org.flashlightdc.flashlight.dto.SummaryResponse;
 import org.flashlightdc.flashlight.entity.Bill;
 import org.flashlightdc.flashlight.entity.IngestionJob;
 import org.flashlightdc.flashlight.repository.IngestionJobRepository;
 import org.flashlightdc.flashlight.service.BillService;
+import org.flashlightdc.flashlight.service.SummarizationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +28,9 @@ public class BillIngestionScheduler {
     private static final Logger log = LoggerFactory.getLogger(BillIngestionScheduler.class);
     private static final int PAGE_SIZE = 250;
     private static final int DETAIL_PAGE_SIZE = 50;
+    private static final int SUMMARY_PAGE_SIZE = 10;
     private static final int DELAY_MS = 1000;
+    private static final int SUMMARY_DELAY_MS = 3500;
 
     @Value("${ingestion.congress}")
     private int congress;
@@ -36,13 +40,16 @@ public class BillIngestionScheduler {
 
     private final CongressApiClient congressApiClient;
     private final BillService billService;
+    private final SummarizationService summarizationService;
     private final IngestionJobRepository ingestionJobRepository;
 
     public BillIngestionScheduler(CongressApiClient congressApiClient,
                                   BillService billService,
+                                  SummarizationService summarizationService,
                                   IngestionJobRepository ingestionJobRepository) {
         this.congressApiClient = congressApiClient;
         this.billService = billService;
+        this.summarizationService = summarizationService;
         this.ingestionJobRepository = ingestionJobRepository;
     }
 
@@ -55,24 +62,31 @@ public class BillIngestionScheduler {
             ingestionJobRepository.deleteByJobTypeAndCongress("BILLS", congress);
         }
 
+        boolean summaryComplete = ingestionJobRepository
+                .existsByJobTypeAndCongressAndStatusAndPhase(
+                        "BILLS", congress,
+                        IngestionJob.JobStatus.COMPLETED,
+                        IngestionJob.JobPhase.SUMMARY
+                );
+
+        if (summaryComplete) {
+            log.info("Bill ingestion (including summary) already complete, skipping run");
+            return;
+        }
+
         boolean detailComplete = ingestionJobRepository
                 .existsByJobTypeAndCongressAndStatusAndPhase(
                         "BILLS", congress,
-                        IngestionJob.JobStatus.RUNNING,
+                        IngestionJob.JobStatus.COMPLETED,
                         IngestionJob.JobPhase.DETAIL
                 );
 
         if (detailComplete) {
-            log.info("Bill ingestion already complete, skipping run");
+            runPhase(IngestionJob.JobPhase.SUMMARY);
             return;
         }
 
-        boolean listComplete = !ingestionJobRepository
-                .existsByJobTypeAndCongressAndStatusAndPhase(
-                        "BILLS", congress,
-                        IngestionJob.JobStatus.PAUSED,
-                        IngestionJob.JobPhase.LIST
-                ) && ingestionJobRepository
+        boolean listComplete = ingestionJobRepository
                 .existsByJobTypeAndCongressAndStatusAndPhase(
                         "BILLS", congress,
                         IngestionJob.JobStatus.COMPLETED,
@@ -119,8 +133,10 @@ public class BillIngestionScheduler {
         try {
             if (phase == IngestionJob.JobPhase.LIST) {
                 runListPhase(job);
-            } else {
+            } else if (phase == IngestionJob.JobPhase.DETAIL) {
                 runDetailPhase(job);
+            } else {
+                runSummaryPhase(job);
             }
         } catch (Exception e) {
             log.error("BILLS {} phase failed at offset {}", phase, job.getCurrentOffset(), e);
@@ -231,6 +247,25 @@ public class BillIngestionScheduler {
 
                     Thread.sleep(DELAY_MS);
 
+                    // generate AI summary if not already present
+                    try {
+                        if (bill.getSummary() == null || bill.getSummary().isEmpty()) {
+                            SummaryResponse response = summarizationService
+                                    .summarizeBillBlocking(
+                                            bill.getCongress(),
+                                            bill.getBillType(),
+                                            String.valueOf(billNumber)
+                                    );
+                            log.info("Summarized bill {}/{}/{}: status={}",
+                                    bill.getCongress(), bill.getBillType(),
+                                    billNumber, response.getStatus());
+                            Thread.sleep(SUMMARY_DELAY_MS);
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to summarize bill {}/{}/{}",
+                                bill.getCongress(), bill.getBillType(), bill.getBillNumber(), e);
+                    }
+
                 } catch (NumberFormatException e) {
                     log.warn("Skipping bill with non-numeric number: {}", bill.getBillNumber());
                 } catch (Exception e) {
@@ -254,6 +289,69 @@ public class BillIngestionScheduler {
             }
 
             Thread.sleep(DELAY_MS * 2);
+        }
+    }
+
+    private void runSummaryPhase(IngestionJob job) throws InterruptedException {
+        int offset = job.getCurrentOffset();
+
+        while (true) {
+            log.info("SUMMARY phase — processing bills from offset={}", offset);
+
+            Page<Bill> page = billService.findByCongressAndSummaryIsNull(
+                    congress, PageRequest.of(offset / SUMMARY_PAGE_SIZE, SUMMARY_PAGE_SIZE)
+            );
+
+            if (page.isEmpty()) {
+                log.info("SUMMARY phase complete — no more bills to summarize");
+                markComplete(job);
+                break;
+            }
+
+            if (job.getTotalCount() == null) {
+                job.setTotalCount((int) page.getTotalElements());
+                log.info("SUMMARY phase — total bills to summarize: {}", page.getTotalElements());
+            } else {
+                job.setTotalCount((int) page.getTotalElements());
+            }
+
+            for (Bill bill : page.getContent()) {
+                try {
+                    SummaryResponse response = summarizationService
+                            .summarizeBillBlocking(
+                                    bill.getCongress(),
+                                    bill.getBillType(),
+                                    bill.getBillNumber()
+                            );
+
+                    log.info("Summarized bill {}/{}/{}: status={}",
+                            bill.getCongress(), bill.getBillType(),
+                            bill.getBillNumber(), response.getStatus());
+
+                } catch (Exception e) {
+                    log.warn("Failed to summarize bill {}/{}/{}",
+                            bill.getCongress(), bill.getBillType(),
+                            bill.getBillNumber(), e);
+                }
+
+                Thread.sleep(SUMMARY_DELAY_MS);
+            }
+
+            offset += SUMMARY_PAGE_SIZE;
+            job.setCurrentOffset(offset);
+            job.setUpdatedAt(LocalDateTime.now());
+            ingestionJobRepository.save(job);
+
+            log.info("SUMMARY phase — processed offset={} / total={}",
+                    offset, job.getTotalCount());
+
+            if (!page.hasNext()) {
+                log.info("SUMMARY phase complete.");
+                markComplete(job);
+                break;
+            }
+
+            Thread.sleep(SUMMARY_DELAY_MS);
         }
     }
 
