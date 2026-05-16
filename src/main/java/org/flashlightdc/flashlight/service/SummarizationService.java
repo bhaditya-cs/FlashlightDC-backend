@@ -24,6 +24,9 @@ public class SummarizationService {
     @Value("${VERTEX_AI_MODEL_NAME:gemini-2.5-flash}")
     private String modelName;
 
+    @Value("${GOOGLE_CLOUD_PROJECT_ID:}")
+    private String projectId;
+
     public SummarizationService(BillService billService, CongressApiClient congressApiClient,
                                 VertexAiClient vertexAiClient) {
         this.billService = billService;
@@ -31,8 +34,20 @@ public class SummarizationService {
         this.vertexAiClient = vertexAiClient;
     }
 
+    private boolean isAiEnabled() {
+        return projectId != null && !projectId.isEmpty() && !projectId.equals("your-project-id");
+    }
+
     public Mono<SummaryResponse> summarizeBill(int congress, String type, int number) {
         String billId = String.format("%d-%s-%d", congress, type, number);
+
+        if (!isAiEnabled()) {
+            return Mono.just(SummaryResponse.builder()
+                    .billId(billId)
+                    .status("DISABLED")
+                    .summary("AI summarization is not configured.")
+                    .build());
+        }
 
         return billService.getBill(congress, type, number)
                 .flatMap(billDetail -> {
@@ -108,6 +123,13 @@ public class SummarizationService {
      * re-fetches text/CRS from Congress.gov API for Vertex AI summarization.
      */
     public SummaryResponse summarizeBillBlocking(int congress, String type, String billNumber) {
+        if (!isAiEnabled()) {
+            return SummaryResponse.builder()
+                    .billId(String.format("%d-%s-%s", congress, type, billNumber))
+                    .status("DISABLED")
+                    .summary("AI summarization is not configured.")
+                    .build();
+        }
         try {
             int number = Integer.parseInt(billNumber);
             return summarizeBill(congress, type, number).block();

@@ -30,4 +30,6 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
     Page<Bill> findByCongressAndSummaryIsNull(Integer congress, Pageable pageable);
 
     long countByCongress(Integer congress);
+
+    long countByCongressAndSummaryIsNotNull(Integer congress);
 }

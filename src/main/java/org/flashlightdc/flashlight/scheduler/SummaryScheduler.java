@@ -43,19 +43,17 @@ public class SummaryScheduler {
     public void summarize() {
         recoverStuckJobs();
 
-        boolean alreadyComplete = ingestionJobRepository
-                .existsByJobTypeAndCongressAndStatusAndPhase(
-                        "BILLS", congress,
-                        IngestionJob.JobStatus.COMPLETED,
-                        IngestionJob.JobPhase.SUMMARY
-                );
+        // Quick check: are there any bills that need summaries?
+        long pending = billService.findByCongressAndSummaryIsNull(
+                congress, PageRequest.of(0, 1)
+        ).getTotalElements();
 
-        if (alreadyComplete) {
-            log.info("Summary ingestion already complete for congress {}, skipping run", congress);
+        if (pending == 0) {
+            log.debug("No bills with missing summaries for congress {}, nothing to do", congress);
             return;
         }
 
-        log.info("Starting summary ingestion for congress {}", congress);
+        log.info("Found {} bills with missing summaries for congress {}, starting catch-up", pending, congress);
 
         IngestionJob job = ingestionJobRepository
                 .findByJobTypeAndCongressAndStatusAndPhase(
