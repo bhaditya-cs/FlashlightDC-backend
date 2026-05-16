@@ -2,15 +2,13 @@ package org.flashlightdc.flashlight.service;
 
 import jakarta.transaction.Transactional;
 import org.flashlightdc.flashlight.client.CongressApiClient;
-import org.flashlightdc.flashlight.dto.BillDetailDto;
-import org.flashlightdc.flashlight.dto.BillDetailResponse;
-import org.flashlightdc.flashlight.dto.BillListResponse;
-import org.flashlightdc.flashlight.dto.BillSummaryDto;
-import org.flashlightdc.flashlight.dto.SponsorDto;
+import org.flashlightdc.flashlight.dto.*;
 import org.flashlightdc.flashlight.entity.Bill;
+import org.flashlightdc.flashlight.entity.Cosponsor;
 import org.flashlightdc.flashlight.entity.Member;
 import org.flashlightdc.flashlight.entity.Sponsor;
 import org.flashlightdc.flashlight.repository.BillRepository;
+import org.flashlightdc.flashlight.repository.CosponsorRepository;
 import org.flashlightdc.flashlight.repository.MemberRepository;
 import org.flashlightdc.flashlight.repository.SponsorRepository;
 import org.springframework.data.domain.Page;
@@ -29,13 +27,15 @@ public class BillService {
     private final BillRepository billRepository;
     private final SponsorRepository sponsorRepository;
     private final MemberRepository memberRepository;
+    private final CosponsorRepository cosponsorRepository;
 
     public BillService(CongressApiClient congressApiClient, BillRepository billRepository,
-                       SponsorRepository sponsorRepository, MemberRepository memberRepository) {
+                       SponsorRepository sponsorRepository, MemberRepository memberRepository, CosponsorRepository cosponsorRepository) {
         this.congressApiClient = congressApiClient;
         this.billRepository = billRepository;
         this.sponsorRepository = sponsorRepository;
         this.memberRepository = memberRepository;
+        this.cosponsorRepository = cosponsorRepository;
     }
 
     public Mono<BillListResponse> getBills(int congress, int limit, int offset) {
@@ -100,6 +100,11 @@ public class BillService {
             persistSponsors(bill, dto.sponsors());
         }
 
+        if (dto.cosponsors() != null) {
+            cosponsorRepository.deleteByBillId(bill.getId());
+            persistCosponsors(bill, dto.cosponsors());
+        }
+
         return bill;
     }
 
@@ -125,6 +130,48 @@ public class BillService {
                 sponsorRepository.save(sponsor);
             }
         }
+    }
+    private void persistCosponsors(Bill bill, List<CosponsorDto> cosponsors) {
+        for (CosponsorDto cosponsorDto : cosponsors) {
+            Member member = memberRepository.findById(cosponsorDto.bioguideId())
+                    .orElseGet(() -> {
+                        Member stub = new Member();
+                        stub.setBioguideId(cosponsorDto.bioguideId());
+                        stub.setName(cosponsorDto.fullName());
+                        stub.setPartyName(cosponsorDto.party());
+                        stub.setState(cosponsorDto.state());
+                        stub.setDistrict(cosponsorDto.district());
+                        stub.setUrl(cosponsorDto.url());
+                        stub.setUpdatedAt(LocalDateTime.now());
+                        return memberRepository.save(stub);
+                    });
+            if (cosponsorRepository.findByBill_IdAndMember_BioguideId(bill.getId(), cosponsorDto.bioguideId()).isEmpty()) {
+                Cosponsor cosponsor = new Cosponsor();
+                cosponsor.setBill(bill);
+                cosponsor.setMember(member);
+                cosponsorRepository.save(cosponsor);
+            }
+        }
+    }
+
+    @Transactional
+    public void saveCosponsors(int congress, String type, String number, List<CosponsorDto> cosponsors) {
+        billRepository.findByCongressAndBillTypeAndBillNumber(congress, type, number)
+                .ifPresent(bill -> {
+                    cosponsorRepository.deleteAll(cosponsorRepository.findByBill_Id(bill.getId()));
+                    List<Cosponsor> entities = cosponsors.stream()
+                            .map(c -> {
+                                Cosponsor cosponsor = new Cosponsor();
+                                cosponsor.setBill(bill);
+                                cosponsor.setSponsoredDate(c.sponsorshipDate());
+                                cosponsor.setOriginal(c.isOriginalCosponsor());
+                                memberRepository.findById(c.bioguideId()).ifPresent(cosponsor::setMember);
+                                return cosponsor;
+                            })
+                            .filter(c -> c.getMember() != null)
+                            .toList();
+                    cosponsorRepository.saveAll(entities);
+                });
     }
 
     @Transactional

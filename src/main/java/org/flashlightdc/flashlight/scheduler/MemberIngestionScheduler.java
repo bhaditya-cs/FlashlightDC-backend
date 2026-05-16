@@ -52,7 +52,7 @@ public class MemberIngestionScheduler {
         boolean alreadyComplete = ingestionJobRepository
                 .existsByJobTypeAndCongressAndStatusAndPhase(
                         "MEMBERS", congress,
-                        IngestionJob.JobStatus.COMPLETED,
+                        IngestionJob.JobStatus.RUNNING,
                         IngestionJob.JobPhase.LIST
                 );
 

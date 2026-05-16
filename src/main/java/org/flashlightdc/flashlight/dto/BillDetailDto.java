@@ -1,6 +1,8 @@
 package org.flashlightdc.flashlight.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.flashlightdc.flashlight.util.CosponsorListDeserializer;
 
 import java.util.List;
 
@@ -14,7 +16,8 @@ public record BillDetailDto(
         String introducedDate,
         LatestActionDto latestAction,
         List<SponsorDto> sponsors,
-        CosponsorsDto cosponsors,
+        @JsonDeserialize(using = CosponsorListDeserializer.class)
+        List<CosponsorDto> cosponsors,
         PolicyAreaDto policyArea,
         SummariesDto summaries,
         String constitutionalAuthorityStatementText,
