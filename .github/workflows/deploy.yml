@@ -21,7 +21,8 @@ jobs:
 
       - name: Build with Maven
         run: ./mvnw package -DskipTests
-
+      - name: Rename jar
+        run: mv target/*.jar target/app.jar
       - name: Copy jar to server
         uses: appleboy/scp-action@v0.1.7
         with:
