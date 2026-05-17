@@ -35,6 +35,6 @@ build/
 ### environment ###
 .env
 *.zip
-
+billion-scraper-fdd07fd71de9.json
 ### MacOS ###
 .DS_Store
