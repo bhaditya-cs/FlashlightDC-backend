@@ -1,55 +1,70 @@
 {
   "bill_number": "H.R. 815",
-  "title": "Resources and Education for Liberty, Independence, and Empowerment for Families Act",
-  "hook": "This bill aims to help families afford after-school tutoring and food for K-12 students in low-income areas.",
+  "title": "RELIEF Act",
+  "hook": "This bill helps non-profit groups offer after-school tutoring and food to K-12 kids.",
   "sections": [
     {
       "id": "tldr",
       "title": "TL;DR",
       "collapsed_summary": {
         "items": [
-          { "label": "What", "text": "Creates grants for after-school tutoring and nutritional support for K-12 students." },
-          { "label": "Who", "text": "Introduced by a U.S. Representative." },
-          { "label": "Status", "text": "Introduced in the House, no votes yet." }
+          {
+            "label": "What",
+            "text": "Creates grants for K-12 after-school tutoring and food programs."
+          },
+          {
+            "label": "Who",
+            "text": "Sponsor information not available in provided text."
+          },
+          {
+            "label": "Status",
+            "text": "Status unknown based on provided text."
+          }
         ]
       },
-      "expanded_detail": "The RELIEF Act would establish a new grant program through the Department of Education. This program would provide funding to non-profit organizations that offer after-school tutoring and nutritional meals to K-12 students, specifically in communities where at least 40% of residents live below the poverty line. The bill authorizes $50 million annually from 2026 to 2030 for this program. Since it has only been introduced, it must go through committee review and potentially votes in both the House and Senate."
+      "expanded_detail": "This bill aims to create a new grant program within the Department of Education. It would provide money to non-profit organizations that offer after-school tutoring and nutritional support to K-12 students, especially in low-income communities. The bill text does not include details on its sponsor or current legislative status."
     },
     {
       "id": "status",
       "title": "Where Is This Bill?",
       "collapsed_summary": {
-        "stages": ["Introduced", "Committee", "House Vote", "Senate", "Law"],
+        "stages": [
+          "Introduced",
+          "Committee",
+          "House Vote",
+          "Senate",
+          "Law"
+        ],
         "current": "Introduced"
       },
-      "expanded_detail": "This bill has been introduced in the House of Representatives, which is the first step in the legislative process. It has not yet been assigned to a committee for review or voted on by either chamber. For it to become law, it would need to pass in both the House and the Senate, and then be signed by the President."
+      "expanded_detail": "This bill has been introduced in Congress. It now needs to be assigned to a committee for review and potential revisions. If it passes committee, it would then be eligible for a vote in the House of Representatives."
     },
     {
       "id": "impacts",
       "title": "If This Passes, You Might Notice",
       "collapsed_summary": {
         "bullets": [
-          "More after-school tutoring and meals could become available for K-12 students.",
-          "Non-profits offering these services in low-income areas could receive federal funding.",
-          "Families in struggling communities might see increased support for their children's education and well-being."
+          "More K-12 students could get after-school tutoring.",
+          "More K-12 students could receive nutritional support after school.",
+          "Non-profit groups could apply for federal money for these programs."
         ]
       },
-      "expanded_detail": "If passed, the bill would create new funding opportunities for non-profit organizations that provide crucial after-school support. This means that more K-12 students, especially those in communities with high poverty rates, could gain access to free tutoring and nutritious meals after school. These programs aim to improve student academic performance and overall well-being, potentially easing financial burdens on families struggling with the costs of childcare and education."
+      "expanded_detail": "If passed, K-12 students, especially those in low-income areas, could gain access to free after-school tutoring to help with their studies. They might also receive nutritious food, addressing potential hunger after school hours. Non-profit organizations meeting specific criteria would be able to apply for federal grants to fund and expand these vital services, starting in fiscal year 2026."
     },
     {
       "id": "debate",
       "title": "The Debate",
       "collapsed_summary": {
-        "supporters": "Proponents argue it addresses the rising costs of childcare and education for struggling families.",
-        "critics": "Opponents might raise concerns about federal spending and whether such programs are best handled locally."
+        "supporters": "This bill would help families and children in need by funding critical after-school support programs.",
+        "critics": "No specific arguments against this bill are available in the provided text."
       },
-      "expanded_detail": "Supporters emphasize the bill's focus on providing vital educational and nutritional support to K-12 students in low-income areas, aiming to improve academic outcomes and relieve financial pressure on families. Critics may question the overall cost of the program, which is authorized for $50 million per year, and debate the role of the federal government versus local communities in funding and managing these types of services."
+      "expanded_detail": "The bill's findings state that many families struggle with the rising costs of childcare and primary education, especially in low-income urban areas. The grant program is designed to ease these burdens by supporting K-12 students through academic help and food. No specific criticisms or additional viewpoints are detailed within the bill text itself."
     },
     {
       "id": "bottom_line",
       "title": "Bottom Line",
-      "collapsed_summary": "This bill proposes federal grants to support after-school tutoring and meals for K-12 students in communities facing high poverty.",
-      "expanded_detail": "The intention is to help children succeed academically and ensure they receive proper nutrition, particularly in areas where families struggle with education and childcare costs. Its actual impact depends on whether it passes Congress and how the grant program is implemented."
+      "collapsed_summary": "This bill creates a grant program to help non-profits provide after-school tutoring and food to K-12 kids.",
+      "expanded_detail": "The bill authorizes $50 million annually for five years, from 2026 to 2030, to fund this program. Its success would depend on non-profit participation and effective implementation by the Department of Education, targeting organizations with at least three years of operation in areas where 40% of residents live below the poverty line."
     }
   ]
 }

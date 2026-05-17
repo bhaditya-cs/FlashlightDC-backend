@@ -74,12 +74,13 @@ public class StatsService {
 
     public BillStatsDto getBillStats(int congress) {
         long currentCount = billRepository.countByCongress(congress);
+        long summarizedCount = billRepository.countByCongressAndSummaryIsNotNull(congress);
         long delta = snapshotRepository
                 .findTopByCongressAndSnapshotAtBeforeOrderBySnapshotAtDesc(
                         congress, LocalDateTime.now().minusHours(24)
                 )
                 .map(snapshot -> currentCount - snapshot.getBillCount())
                 .orElse(0L);
-        return new BillStatsDto(currentCount, delta);
+        return new BillStatsDto(currentCount, summarizedCount, delta);
     }
 }
