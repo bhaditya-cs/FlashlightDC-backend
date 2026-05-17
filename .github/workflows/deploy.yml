@@ -30,7 +30,7 @@ jobs:
           username: ${{ secrets.OCI_USERNAME }}
           key: ${{ secrets.OCI_SSH_KEY }}
           source: "target/app.jar"
-          target: "/app/app.jar"
+          target: "/app"
           strip_components: 1
 
       - name: Deploy on server
