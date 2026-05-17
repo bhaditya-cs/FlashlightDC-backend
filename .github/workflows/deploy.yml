@@ -30,7 +30,8 @@ jobs:
           username: ${{ secrets.OCI_USERNAME }}
           key: ${{ secrets.OCI_SSH_KEY }}
           source: "target/app.jar"
-          target: "/app"
+          target: "/app/app.jar"
+          strip_components: 1
 
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.0.3
@@ -40,6 +41,5 @@ jobs:
           key: ${{ secrets.OCI_SSH_KEY }}
           script: |
             cd /app
-            docker compose down
             docker compose up -d --build
             docker compose logs --tail=50
