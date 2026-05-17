@@ -29,7 +29,7 @@ jobs:
           host: ${{ secrets.OCI_HOST }}
           username: ${{ secrets.OCI_USERNAME }}
           key: ${{ secrets.OCI_SSH_KEY }}
-          source: "target/*.jar"
+          source: "target/app.jar"
           target: "/app"
 
       - name: Deploy on server
@@ -40,6 +40,5 @@ jobs:
           key: ${{ secrets.OCI_SSH_KEY }}
           script: |
             cd /app
-            docker compose down
             docker compose up -d --build
-            docker compose logs -f --tail=50
+            docker compose logs --tail=50
