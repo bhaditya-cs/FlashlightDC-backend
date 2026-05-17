@@ -1,8 +1,10 @@
 package org.flashlightdc.flashlight.controller;
 
+import org.flashlightdc.flashlight.dto.BillDetailDto;
 import org.flashlightdc.flashlight.dto.BillListResponse;
 import org.flashlightdc.flashlight.dto.MemberDetailResponse;
 import org.flashlightdc.flashlight.dto.MemberListResponse;
+import org.flashlightdc.flashlight.entity.Bill;
 import org.flashlightdc.flashlight.entity.Member;
 import org.flashlightdc.flashlight.service.MemberService;
 import org.springframework.http.ResponseEntity;
@@ -67,5 +69,10 @@ public class MemberController {
         return memberService.findById(bioguideId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{bioguideId}/bills")
+    public ResponseEntity<List<BillDetailDto>> getSponsoredBills(@PathVariable String bioguideId) {
+        return ResponseEntity.ok(memberService.getSponsoredBills(bioguideId));
     }
 }
