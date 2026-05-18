@@ -1,12 +1,12 @@
 package org.flashlightdc.flashlight.controller;
 
-import org.flashlightdc.flashlight.dto.BillDetailDto;
-import org.flashlightdc.flashlight.dto.BillListResponse;
-import org.flashlightdc.flashlight.dto.MemberDetailResponse;
-import org.flashlightdc.flashlight.dto.MemberListResponse;
+import org.flashlightdc.flashlight.dto.*;
 import org.flashlightdc.flashlight.entity.Bill;
 import org.flashlightdc.flashlight.entity.Member;
 import org.flashlightdc.flashlight.service.MemberService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
@@ -72,7 +72,16 @@ public class MemberController {
     }
 
     @GetMapping("/{bioguideId}/bills")
-    public ResponseEntity<List<BillDetailDto>> getSponsoredBills(@PathVariable String bioguideId) {
-        return ResponseEntity.ok(memberService.getSponsoredBills(bioguideId));
+    public ResponseEntity<Page<Bill>> getSponsoredBills(
+            @PathVariable String bioguideId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(memberService.getSponsoredBills(bioguideId, pageable));
+
+    }
+    @GetMapping("/{bioguideId}/sponsorCount")
+    public ResponseEntity<SponsorCountDto> getSponsorCount (@PathVariable String bioguideId) {
+        return ResponseEntity.ok(memberService.getSponsorCount(bioguideId));
     }
 }

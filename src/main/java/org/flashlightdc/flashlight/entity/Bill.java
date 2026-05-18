@@ -1,5 +1,6 @@
 package org.flashlightdc.flashlight.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.Fetch;
@@ -13,6 +14,7 @@ import java.util.List;
 @Table(name = "bills", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"congress", "bill_type", "bill_number"})
 })
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Bill {
 
     @Id
