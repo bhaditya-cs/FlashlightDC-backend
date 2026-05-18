@@ -2,6 +2,7 @@ package org.flashlightdc.flashlight.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -9,6 +10,7 @@ import lombok.Data;
 @Data
 @Entity
 @Table(name = "cosponsors")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Cosponsor {
 
     @Id

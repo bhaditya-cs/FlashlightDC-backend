@@ -12,6 +12,7 @@ import org.flashlightdc.flashlight.repository.SponsorRepository;
 import org.flashlightdc.flashlight.repository.TermRepository;
 import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -115,62 +116,41 @@ public class MemberService {
         return memberRepository.findByPartyNameAndState(partyName, state);
     }
 
-    @Transactional
-    public List<BillDetailDto> getSponsoredBills(String bioguideId) {
-        return sponsorRepository.findByMember_BioguideId(bioguideId).stream()
+    @Transactional()
+    public Page<Bill> getSponsoredBills(String bioguideId, Pageable pageable) {
+        Page<Sponsor> sponsors =
+                sponsorRepository.findByMember_BioguideId(bioguideId, pageable);
+
+        List<Bill> bills = sponsors.getContent().stream()
                 .map(sponsor -> {
                     Bill bill = sponsor.getBill();
+
                     Hibernate.initialize(bill.getSponsors());
-                    bill.getSponsors().forEach(s -> Hibernate.initialize(s.getMember()));
+                    bill.getSponsors().forEach(s ->
+                            Hibernate.initialize(s.getMember()));
+
                     Hibernate.initialize(bill.getCosponsors());
-                    bill.getCosponsors().forEach(c -> Hibernate.initialize(c.getMember()));
-                    return mapBillToDto(bill);
+                    bill.getCosponsors().forEach(c ->
+                            Hibernate.initialize(c.getMember()));
+
+                    return bill;
                 })
                 .toList();
-    }
 
-    private BillDetailDto mapBillToDto(Bill bill) {
-        List<SponsorDto> sponsors = bill.getSponsors().stream()
-                .map(s -> new SponsorDto(
-                        s.getMember().getBioguideId(),
-                        s.getMember().getName(),
-                        s.getMember().getPartyName(),
-                        s.getMember().getState(),
-                        s.getMember().getDistrict(),
-                        s.isByRequest(),
-                        s.getMember().getUrl()
-                ))
-                .toList();
-
-        List<CosponsorDto> cosponsors = bill.getCosponsors().stream()
-                .map(c -> new CosponsorDto(
-                        c.getMember().getBioguideId(),
-                        c.getMember().getName(),
-                        c.getMember().getPartyName(),
-                        c.getMember().getState(),
-                        c.getMember().getDistrict(),
-                        c.getSponsoredDate(),
-                        c.isOriginal(),
-                        c.getMember().getUrl()
-                ))
-                .toList();
-
-        return new BillDetailDto(
-                bill.getCongress(),
-                bill.getBillNumber(),
-                bill.getBillType(),
-                bill.getTitle(),
-                bill.getOriginChamber(),
-                bill.getIntroducedDate(),
-                bill.getLatestActionDate() != null
-                        ? new LatestActionDto(bill.getLatestActionDate(), bill.getLatestActionText(), null)
-                        : null,
-                sponsors,
-                cosponsors,
-                bill.getPolicyArea() != null ? new PolicyAreaDto(bill.getPolicyArea()) : null,
-                null,
-                null,
-                bill.getUrl()
+        return new PageImpl<>(
+                bills,
+                pageable,
+                sponsors.getTotalElements()
         );
     }
+
+    public SponsorCountDto getSponsorCount (String bioguideId) {
+        Member member = memberRepository.findById(bioguideId).orElse(null);
+        if (member == null) {
+            return new SponsorCountDto(0,0);
+        }
+        return new SponsorCountDto(member.getSponsorships().size(), member.getCosponsorships().size());
+    }
+
+
 }
