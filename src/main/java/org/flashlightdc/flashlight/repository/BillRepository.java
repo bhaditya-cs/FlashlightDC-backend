@@ -4,6 +4,8 @@ import org.flashlightdc.flashlight.entity.Bill;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -32,4 +34,16 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
     long countByCongress(Integer congress);
 
     long countByCongressAndSummaryIsNotNull(Integer congress);
+
+    @Query("SELECT b.originChamber, COUNT(b) FROM Bill b WHERE b.congress = :congress GROUP BY b.originChamber")
+    List<Object[]> countByOriginChamberGrouped(@Param("congress") Integer congress);
+
+    @Query("SELECT b.policyArea, COUNT(b) FROM Bill b WHERE b.congress = :congress AND b.policyArea IS NOT NULL GROUP BY b.policyArea ORDER BY COUNT(b) DESC")
+    List<Object[]> countByPolicyAreaGrouped(@Param("congress") Integer congress);
+
+    @Query("SELECT COUNT(b) FROM Bill b WHERE b.congress = :congress AND b.introducedDate >= :startDate AND b.introducedDate < :endDate")
+    long countByCongressAndIntroducedDateBetween(@Param("congress") Integer congress, @Param("startDate") String startDate, @Param("endDate") String endDate);
+
+    @Query("SELECT COUNT(b) FROM Bill b WHERE b.congress = :congress AND b.latestActionDate >= :since")
+    long countByCongressAndLatestActionDateSince(@Param("congress") Integer congress, @Param("since") String since);
 }

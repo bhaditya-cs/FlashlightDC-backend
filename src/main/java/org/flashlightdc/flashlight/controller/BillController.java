@@ -2,6 +2,7 @@ package org.flashlightdc.flashlight.controller;
 
 import org.flashlightdc.flashlight.dto.BillDetailResponse;
 import org.flashlightdc.flashlight.dto.BillListResponse;
+import org.flashlightdc.flashlight.dto.BillStatsResponse;
 import org.flashlightdc.flashlight.entity.Bill;
 import org.flashlightdc.flashlight.service.BillService;
 import org.springframework.data.domain.Page;
@@ -97,5 +98,12 @@ public class BillController {
     ) {
         Pageable pageable = PageRequest.of(page, size);
         return ResponseEntity.ok(billService.findByPolicyAreaAndCongress(policyArea, congress, pageable));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<BillStatsResponse> getStats(
+            @RequestParam(defaultValue = "119") int congress
+    ) {
+        return ResponseEntity.ok(billService.getStats(congress));
     }
 }

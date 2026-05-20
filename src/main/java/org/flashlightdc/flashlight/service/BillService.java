@@ -16,9 +16,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class BillService {
@@ -202,5 +206,31 @@ public class BillService {
 
     public Page<Bill> findByPolicyAreaAndCongress(String policyArea, Integer congress, Pageable pageable) {
         return billRepository.findByPolicyAreaAndCongress(policyArea, congress, pageable);
+    }
+
+    public BillStatsResponse getStats(Integer congress) {
+        long totalBills = billRepository.countByCongress(congress);
+
+        Map<String, Long> chamberBreakdown = billRepository.countByOriginChamberGrouped(congress)
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (String) row[0],
+                        row -> (Long) row[1]
+                ));
+
+        YearMonth currentMonth = YearMonth.now();
+        String monthStart = currentMonth.atDay(1).toString();
+        String monthEnd = currentMonth.plusMonths(1).atDay(1).toString();
+        long billsThisMonth = billRepository.countByCongressAndIntroducedDateBetween(congress, monthStart, monthEnd);
+
+        String threeMonthsAgo = currentMonth.minusMonths(3).atDay(1).toString();
+        long recentAmendments = billRepository.countByCongressAndLatestActionDateSince(congress, threeMonthsAgo);
+
+        List<BillStatsResponse.PopularTopic> popularTopics = billRepository.countByPolicyAreaGrouped(congress)
+                .stream()
+                .map(row -> new BillStatsResponse.PopularTopic((String) row[0], (Long) row[1]))
+                .toList();
+
+        return new BillStatsResponse(totalBills, billsThisMonth, recentAmendments, chamberBreakdown, popularTopics);
     }
 }
