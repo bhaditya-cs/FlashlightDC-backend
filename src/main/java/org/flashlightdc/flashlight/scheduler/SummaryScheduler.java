@@ -1,5 +1,6 @@
 package org.flashlightdc.flashlight.scheduler;
 
+import org.flashlightdc.flashlight.dto.BillCacheDto;
 import org.flashlightdc.flashlight.dto.SummaryResponse;
 import org.flashlightdc.flashlight.entity.Bill;
 import org.flashlightdc.flashlight.entity.IngestionJob;
@@ -102,7 +103,7 @@ public class SummaryScheduler {
         while (true) {
             log.info("SUMMARY phase — processing bills from offset={}", offset);
 
-            Page<Bill> page = billService.findByCongressAndSummaryIsNull(
+            Page<BillCacheDto> page = billService.findByCongressAndSummaryIsNull(
                     congress, PageRequest.of(offset / PAGE_SIZE, PAGE_SIZE)
             );
 
@@ -119,23 +120,21 @@ public class SummaryScheduler {
                 job.setTotalCount((int) page.getTotalElements());
             }
 
-            for (Bill bill : page.getContent()) {
+            for (BillCacheDto bill : page.getContent()) {
                 try {
                     SummaryResponse response = summarizationService
                             .summarizeBillBlocking(
-                                    bill.getCongress(),
-                                    bill.getBillType(),
-                                    bill.getBillNumber()
+                                    bill.congress(),
+                                    bill.billType(),
+                                    bill.billNumber()
                             );
 
-                    log.info("Summarized bill {}/{}/{}: status={}",
-                            bill.getCongress(), bill.getBillType(),
-                            bill.getBillNumber(), response.getStatus());
+
 
                 } catch (Exception e) {
                     log.warn("Failed to summarize bill {}/{}/{}",
-                            bill.getCongress(), bill.getBillType(),
-                            bill.getBillNumber(), e);
+                            bill.congress(), bill.billType(),
+                            bill.billNumber(), e);
                 }
 
                 Thread.sleep(DELAY_MS);

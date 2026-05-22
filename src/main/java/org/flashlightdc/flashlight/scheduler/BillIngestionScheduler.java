@@ -1,11 +1,7 @@
 package org.flashlightdc.flashlight.scheduler;
 
 import org.flashlightdc.flashlight.client.CongressApiClient;
-import org.flashlightdc.flashlight.dto.BillDetailResponse;
-import org.flashlightdc.flashlight.dto.BillListResponse;
-import org.flashlightdc.flashlight.dto.BillSummaryDto;
-import org.flashlightdc.flashlight.dto.CosponsorListResponse;
-import org.flashlightdc.flashlight.dto.SummaryResponse;
+import org.flashlightdc.flashlight.dto.*;
 import org.flashlightdc.flashlight.entity.Bill;
 import org.flashlightdc.flashlight.entity.IngestionJob;
 import org.flashlightdc.flashlight.repository.IngestionJobRepository;
@@ -200,7 +196,7 @@ public class BillIngestionScheduler {
         while (true) {
             log.info("DETAIL phase — processing bills from offset={}", offset);
 
-            Page<Bill> page = billService.findByCongressPaginated(
+            Page<BillCacheDto> page = billService.findByCongressPaginated(
                     congress, PageRequest.of(offset / DETAIL_PAGE_SIZE, DETAIL_PAGE_SIZE)
             );
 
@@ -210,11 +206,11 @@ public class BillIngestionScheduler {
                 break;
             }
 
-            for (Bill bill : page.getContent()) {
+            for (BillCacheDto bill : page.getContent()) {
                 try {
-                    int billNumber = Integer.parseInt(bill.getBillNumber());
+                    int billNumber = Integer.parseInt(bill.billNumber());
                     BillDetailResponse detail = congressApiClient
-                            .getBill(bill.getCongress(), bill.getBillType(), billNumber)
+                            .getBill(bill.congress(), bill.billType(), billNumber)
                             .block();
 
                     if (detail != null && detail.bill() != null) {
@@ -226,51 +222,51 @@ public class BillIngestionScheduler {
                     // fetch and save cosponsors
                     try {
                         CosponsorListResponse cosponsorResponse = congressApiClient
-                                .getCosponsors(bill.getCongress(), bill.getBillType(), billNumber)
+                                .getCosponsors(bill.congress(), bill.billType(), billNumber)
                                 .block();
                         log.info("test {}", cosponsorResponse);
                         if (cosponsorResponse != null && cosponsorResponse.cosponsors() != null) {
                             billService.saveCosponsors(
-                                    bill.getCongress(),
-                                    bill.getBillType(),
-                                    bill.getBillNumber(),
+                                    bill.congress(),
+                                    bill.billType(),
+                                    bill.billNumber(),
                                     cosponsorResponse.cosponsors()
                             );
                             log.info("Saved {} cosponsors for bill {}/{}/{}",
                                     cosponsorResponse.cosponsors().size(),
-                                    bill.getCongress(), bill.getBillType(), bill.getBillNumber());
+                                    bill.congress(), bill.billType(), bill.billNumber());
                         }
                     } catch (Exception e) {
                         log.warn("Failed cosponsor fetch for bill {}/{}/{}",
-                                bill.getCongress(), bill.getBillType(), bill.getBillNumber(), e);
+                                bill.congress(), bill.billType(), bill.billNumber(), e);
                     }
 
                     Thread.sleep(DELAY_MS);
 
                     // generate AI summary if not already present
                     try {
-                        if (bill.getSummary() == null || bill.getSummary().isEmpty()) {
+                        if (bill.summary() == null || bill.summary().isEmpty()) {
                             SummaryResponse response = summarizationService
                                     .summarizeBillBlocking(
-                                            bill.getCongress(),
-                                            bill.getBillType(),
+                                            bill.congress(),
+                                            bill.billType(),
                                             String.valueOf(billNumber)
                                     );
                             log.info("Summarized bill {}/{}/{}: status={}",
-                                    bill.getCongress(), bill.getBillType(),
+                                    bill.congress(), bill.billType(),
                                     billNumber, response.getStatus());
                             Thread.sleep(SUMMARY_DELAY_MS);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to summarize bill {}/{}/{}",
-                                bill.getCongress(), bill.getBillType(), bill.getBillNumber(), e);
+                                bill.congress(), bill.billType(), bill.billNumber(), e);
                     }
 
                 } catch (NumberFormatException e) {
-                    log.warn("Skipping bill with non-numeric number: {}", bill.getBillNumber());
+                    log.warn("Skipping bill with non-numeric number: {}", bill.billNumber());
                 } catch (Exception e) {
                     log.warn("Failed detail fetch for bill {}/{}/{}",
-                            bill.getCongress(), bill.getBillType(), bill.getBillNumber(), e);
+                            bill.congress(), bill.billType(), bill.billNumber(), e);
                 }
             }
 
@@ -298,7 +294,7 @@ public class BillIngestionScheduler {
         while (true) {
             log.info("SUMMARY phase — processing bills from offset={}", offset);
 
-            Page<Bill> page = billService.findByCongressAndSummaryIsNull(
+            Page<BillCacheDto> page = billService.findByCongressAndSummaryIsNull(
                     congress, PageRequest.of(offset / SUMMARY_PAGE_SIZE, SUMMARY_PAGE_SIZE)
             );
 
@@ -315,23 +311,21 @@ public class BillIngestionScheduler {
                 job.setTotalCount((int) page.getTotalElements());
             }
 
-            for (Bill bill : page.getContent()) {
+            for (BillCacheDto bill : page.getContent()) {
                 try {
                     SummaryResponse response = summarizationService
                             .summarizeBillBlocking(
-                                    bill.getCongress(),
-                                    bill.getBillType(),
-                                    bill.getBillNumber()
+                                    bill.congress(),
+                                    bill.billType(),
+                                    bill.billNumber()
                             );
 
-                    log.info("Summarized bill {}/{}/{}: status={}",
-                            bill.getCongress(), bill.getBillType(),
-                            bill.getBillNumber(), response.getStatus());
+
 
                 } catch (Exception e) {
                     log.warn("Failed to summarize bill {}/{}/{}",
-                            bill.getCongress(), bill.getBillType(),
-                            bill.getBillNumber(), e);
+                            bill.congress(), bill.billType(),
+                            bill.billNumber(), e);
                 }
 
                 Thread.sleep(SUMMARY_DELAY_MS);

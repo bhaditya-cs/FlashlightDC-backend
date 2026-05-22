@@ -1,6 +1,6 @@
 package org.flashlightdc.flashlight.service;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.flashlightdc.flashlight.client.CongressApiClient;
 import org.flashlightdc.flashlight.dto.*;
 import org.flashlightdc.flashlight.entity.Bill;
@@ -11,6 +11,8 @@ import org.flashlightdc.flashlight.repository.MemberRepository;
 import org.flashlightdc.flashlight.repository.SponsorRepository;
 import org.flashlightdc.flashlight.repository.TermRepository;
 import org.hibernate.Hibernate;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -23,11 +25,13 @@ import java.util.Optional;
 
 @Service
 public class MemberService {
+
     private final CongressApiClient congressApiClient;
     private final MemberRepository memberRepository;
     private final TermRepository termRepository;
     private final BillService billService;
     private final SponsorRepository sponsorRepository;
+
     public MemberService(CongressApiClient congressApiClient,
                          MemberRepository memberRepository,
                          TermRepository termRepository,
@@ -48,6 +52,7 @@ public class MemberService {
         return congressApiClient.getMember(id);
     }
 
+    @CacheEvict(value = {"member", "members", "memberBills"}, allEntries = true)
     @Transactional
     public Member saveMember(MemberDto dto) {
         Member member = memberRepository.findById(dto.bioguideId())
@@ -71,17 +76,96 @@ public class MemberService {
         return saved;
     }
 
+    @Cacheable(value = "member", key = "#bioguideId")
+    @Transactional
+    public Optional<MemberCacheDto> findById(String bioguideId) {
+        return memberRepository.findById(bioguideId).map(member -> {
+            Hibernate.initialize(member.getTerms());
+            Hibernate.initialize(member.getSponsorships());
+            Hibernate.initialize(member.getCosponsorships());
 
-    public Optional<Member> findById(String bioguideId) {
-        return memberRepository.findById(bioguideId);
+            return new MemberCacheDto(
+                    member.getBioguideId(),
+                    member.getName(),
+                    member.getPartyName(),
+                    member.getState(),
+                    member.getDistrict(),
+                    member.getImageUrl(),
+                    member.getAttribution(),
+                    member.getUrl(),
+                    member.getTerms().stream()
+                            .map(t -> new TermCacheDto(t.getId(), t.getChamber(), t.getStartYear(), t.getEndYear()))
+                            .toList(),
+                    member.getSponsorships().stream()
+                            .map(s -> new SponsorshipCacheDto(s.getId(), s.isByRequest(), s.getMemberName(), s.getMemberState(), s.getMemberParty(), s.getMemberBioguideId()))
+                            .toList(),
+                    member.getCosponsorships().stream()
+                            .map(c -> new CosponsorshipCacheDto(c.getId(), c.isOriginal(), c.getSponsoredDate(), c.getMemberName(), c.getMemberState(), c.getMemberParty(), c.getMemberBioguideId()))
+                            .toList()
+            );
+        });
+    }
+    @Cacheable(value = "members", key = "#partyName")
+    @Transactional
+    public List<MemberCacheDto> findByParty(String partyName) {
+        return memberRepository.findByPartyName(partyName).stream()
+                .map(member -> {
+                    Hibernate.initialize(member.getTerms());
+                    Hibernate.initialize(member.getSponsorships());
+                    Hibernate.initialize(member.getCosponsorships());
+                    return new MemberCacheDto(
+                            member.getBioguideId(),
+                            member.getName(),
+                            member.getPartyName(),
+                            member.getState(),
+                            member.getDistrict(),
+                            member.getImageUrl(),
+                            member.getAttribution(),
+                            member.getUrl(),
+                            member.getTerms().stream()
+                                    .map(t -> new TermCacheDto(t.getId(), t.getChamber(), t.getStartYear(), t.getEndYear()))
+                                    .toList(),
+                            member.getSponsorships().stream()
+                                    .map(s -> new SponsorshipCacheDto(s.getId(), s.isByRequest(), s.getMemberName(), s.getMemberState(), s.getMemberParty(), s.getMemberBioguideId()))
+                                    .toList(),
+                            member.getCosponsorships().stream()
+                                    .map(c -> new CosponsorshipCacheDto(c.getId(), c.isOriginal(), c.getSponsoredDate(), c.getMemberName(), c.getMemberState(), c.getMemberParty(), c.getMemberBioguideId()))
+                                    .toList()
+
+                    );
+                })
+                .toList();
     }
 
-    public List<Member> findByParty(String partyName) {
-        return memberRepository.findByPartyName(partyName);
-    }
-
-    public List<Member> findByState(String state) {
-        return memberRepository.findByState(state);
+    @Cacheable(value = "members", key = "#state")
+    @Transactional
+    public List<MemberCacheDto> findByState(String state) {
+        return memberRepository.findByState(state).stream()
+                .map(member -> {
+                    Hibernate.initialize(member.getTerms());
+                    Hibernate.initialize(member.getSponsorships());
+                    Hibernate.initialize(member.getCosponsorships());
+                    return new MemberCacheDto(
+                            member.getBioguideId(),
+                            member.getName(),
+                            member.getPartyName(),
+                            member.getState(),
+                            member.getDistrict(),
+                            member.getImageUrl(),
+                            member.getAttribution(),
+                            member.getUrl(),
+                            member.getTerms().stream()
+                                    .map(t -> new TermCacheDto(t.getId(), t.getChamber(), t.getStartYear(), t.getEndYear()))
+                                    .toList(),
+                            member.getSponsorships().stream()
+                                    .map(s -> new SponsorshipCacheDto(s.getId(), s.isByRequest(), s.getMemberName(), s.getMemberState(), s.getMemberParty(), s.getMemberBioguideId()))
+                                    .toList(),
+                            member.getCosponsorships().stream()
+                                    .map(c -> new CosponsorshipCacheDto(c.getId(), c.isOriginal(), c.getSponsoredDate(), c.getMemberName(), c.getMemberState(), c.getMemberParty(), c.getMemberBioguideId()))
+                                    .toList()
+                    );
+                })
+                .toList();
     }
 
     private void saveTerms(Member member, List<TermDto> terms) {
@@ -107,50 +191,90 @@ public class MemberService {
     public Page<Member> findAllPaginated(Pageable pageable) {
         return memberRepository.findAll(pageable);
     }
-
-    public List<Member> findAll() {
-        return memberRepository.findAll();
+    @Cacheable(value = "members")
+    @Transactional
+    public List<MemberCacheDto> findAll() {
+        return memberRepository.findAll().stream()
+                .map(member -> {
+                    Hibernate.initialize(member.getTerms());
+                    Hibernate.initialize(member.getSponsorships());
+                    Hibernate.initialize(member.getCosponsorships());
+                    return new MemberCacheDto(
+                            member.getBioguideId(),
+                            member.getName(),
+                            member.getPartyName(),
+                            member.getState(),
+                            member.getDistrict(),
+                            member.getImageUrl(),
+                            member.getAttribution(),
+                            member.getUrl(),
+                            member.getTerms().stream()
+                                    .map(t -> new TermCacheDto(t.getId(), t.getChamber(), t.getStartYear(), t.getEndYear()))
+                                    .toList(),
+                            member.getSponsorships().stream()
+                                    .map(s -> new SponsorshipCacheDto(s.getId(), s.isByRequest(), s.getMemberName(), s.getMemberState(), s.getMemberParty(), s.getMemberBioguideId()))
+                                    .toList(),
+                            member.getCosponsorships().stream()
+                                    .map(c -> new CosponsorshipCacheDto(c.getId(), c.isOriginal(), c.getSponsoredDate(), c.getMemberName(), c.getMemberState(), c.getMemberParty(), c.getMemberBioguideId()))
+                                    .toList()
+                    );
+                })
+                .toList();
+    }
+    @Cacheable(value = "members", key = "#partyName + '-' + #state")
+    @Transactional
+    public List<MemberCacheDto> findByPartyAndState(String partyName, String state) {
+        return memberRepository.findByPartyNameAndState(partyName, state).stream()
+                .map(member -> {
+                    Hibernate.initialize(member.getTerms());
+                    Hibernate.initialize(member.getSponsorships());
+                    Hibernate.initialize(member.getCosponsorships());
+                    return new MemberCacheDto(
+                            member.getBioguideId(),
+                            member.getName(),
+                            member.getPartyName(),
+                            member.getState(),
+                            member.getDistrict(),
+                            member.getImageUrl(),
+                            member.getAttribution(),
+                            member.getUrl(),
+                            member.getTerms().stream()
+                                    .map(t -> new TermCacheDto(t.getId(), t.getChamber(), t.getStartYear(), t.getEndYear()))
+                                    .toList(),
+                            member.getSponsorships().stream()
+                                    .map(s -> new SponsorshipCacheDto(s.getId(), s.isByRequest(), s.getMemberName(), s.getMemberState(), s.getMemberParty(), s.getMemberBioguideId()))
+                                    .toList(),
+                            member.getCosponsorships().stream()
+                                    .map(c -> new CosponsorshipCacheDto(c.getId(), c.isOriginal(), c.getSponsoredDate(), c.getMemberName(), c.getMemberState(), c.getMemberParty(), c.getMemberBioguideId()))
+                                    .toList()
+                    );
+                })
+                .toList();
     }
 
-    public List<Member> findByPartyAndState(String partyName, String state) {
-        return memberRepository.findByPartyNameAndState(partyName, state);
-    }
-
-    @Transactional()
+    @Transactional
     public Page<Bill> getSponsoredBills(String bioguideId, Pageable pageable) {
-        Page<Sponsor> sponsors =
-                sponsorRepository.findByMember_BioguideId(bioguideId, pageable);
+        Page<Sponsor> sponsors = sponsorRepository.findByMember_BioguideId(bioguideId, pageable);
 
         List<Bill> bills = sponsors.getContent().stream()
                 .map(sponsor -> {
                     Bill bill = sponsor.getBill();
-
                     Hibernate.initialize(bill.getSponsors());
-                    bill.getSponsors().forEach(s ->
-                            Hibernate.initialize(s.getMember()));
-
+                    bill.getSponsors().forEach(s -> Hibernate.initialize(s.getMember()));
                     Hibernate.initialize(bill.getCosponsors());
-                    bill.getCosponsors().forEach(c ->
-                            Hibernate.initialize(c.getMember()));
-
+                    bill.getCosponsors().forEach(c -> Hibernate.initialize(c.getMember()));
                     return bill;
                 })
                 .toList();
 
-        return new PageImpl<>(
-                bills,
-                pageable,
-                sponsors.getTotalElements()
-        );
+        return new PageImpl<>(bills, pageable, sponsors.getTotalElements());
     }
 
-    public SponsorCountDto getSponsorCount (String bioguideId) {
+    public SponsorCountDto getSponsorCount(String bioguideId) {
         Member member = memberRepository.findById(bioguideId).orElse(null);
         if (member == null) {
-            return new SponsorCountDto(0,0);
+            return new SponsorCountDto(0, 0);
         }
         return new SponsorCountDto(member.getSponsorships().size(), member.getCosponsorships().size());
     }
-
-
 }

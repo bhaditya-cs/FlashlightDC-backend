@@ -16,7 +16,7 @@ import java.util.List;
 // controller/MemberController.java
 @RestController
 @RequestMapping("/api/members")
-public class MemberController {
+public class    MemberController {
 
     private final MemberService memberService;
 
@@ -24,33 +24,10 @@ public class MemberController {
         this.memberService = memberService;
     }
 
-    // raw API endpoints (debug)
-    @GetMapping("/raw")
-    public Mono<MemberListResponse> getMembersRaw(
-            @RequestParam(defaultValue = "119") int congress,
-            @RequestParam(defaultValue = "20") int limit,
-            @RequestParam(defaultValue = "0") int offset
-    ) {
-        return memberService.getMembers(congress, limit, offset);
-    }
-
-    // fetch from API and persist
-    @PostMapping("/fetch")
-    public Mono<ResponseEntity<String>> fetchAndPersistMembers(
-            @RequestParam(defaultValue = "119") int congress,
-            @RequestParam(defaultValue = "20") int limit,
-            @RequestParam(defaultValue = "0") int offset
-    ) {
-        return memberService.getMembers(congress, limit, offset)
-                .map(response -> {
-                    response.members().forEach(memberService::saveMember);
-                    return ResponseEntity.ok("Persisted " + response.members().size() + " members");
-                });
-    }
 
     // read from DB
     @GetMapping
-    public ResponseEntity<List<Member>> getMembers(
+    public ResponseEntity<List<MemberCacheDto>> getMembers(
             @RequestParam(required = false) String party,
             @RequestParam(required = false) String state
     ) {
@@ -65,7 +42,7 @@ public class MemberController {
     }
 
     @GetMapping("/{bioguideId}")
-    public ResponseEntity<Member> getMember(@PathVariable String bioguideId) {
+    public ResponseEntity<MemberCacheDto> getMember(@PathVariable String bioguideId) {
         return memberService.findById(bioguideId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

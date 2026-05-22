@@ -206,10 +206,10 @@ class MemberServiceTest {
         when(memberRepository.findById("W000790"))
                 .thenReturn(Optional.of(mockMember));
 
-        Optional<Member> result = memberService.findById("W000790");
+        Optional<MemberCacheDto> result = memberService.findById("W000790");
 
         assertThat(result).isPresent();
-        assertThat(result.get().getBioguideId()).isEqualTo("W000790");
+        assertThat(result.get().bioguideId()).isEqualTo("W000790");
     }
 
     @Test
@@ -217,7 +217,7 @@ class MemberServiceTest {
         when(memberRepository.findById(anyString()))
                 .thenReturn(Optional.empty());
 
-        Optional<Member> result = memberService.findById("UNKNOWN");
+        Optional<MemberCacheDto> result = memberService.findById("UNKNOWN");
 
         assertThat(result).isEmpty();
     }
@@ -227,10 +227,10 @@ class MemberServiceTest {
         when(memberRepository.findByPartyName("Democratic"))
                 .thenReturn(List.of(mockMember));
 
-        List<Member> result = memberService.findByParty("Democratic");
+        List<MemberCacheDto> result = memberService.findByParty("Democratic");
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getPartyName()).isEqualTo("Democratic");
+        assertThat(result.get(0).partyName()).isEqualTo("Democratic");
     }
 
     @Test
@@ -238,7 +238,7 @@ class MemberServiceTest {
         when(memberRepository.findByPartyName(anyString()))
                 .thenReturn(List.of());
 
-        List<Member> result = memberService.findByParty("Independent");
+        List<MemberCacheDto> result = memberService.findByParty("Independent");
 
         assertThat(result).isEmpty();
     }
@@ -248,10 +248,10 @@ class MemberServiceTest {
         when(memberRepository.findByState("Georgia"))
                 .thenReturn(List.of(mockMember));
 
-        List<Member> result = memberService.findByState("Georgia");
+        List<MemberCacheDto> result = memberService.findByState("Georgia");
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getState()).isEqualTo("Georgia");
+        assertThat(result.get(0).state()).isEqualTo("Georgia");
     }
 
     @Test
@@ -259,7 +259,7 @@ class MemberServiceTest {
         when(memberRepository.findByPartyNameAndState("Democratic", "Georgia"))
                 .thenReturn(List.of(mockMember));
 
-        List<Member> result = memberService.findByPartyAndState("Democratic", "Georgia");
+        List<MemberCacheDto> result = memberService.findByPartyAndState("Democratic", "Georgia");
 
         assertThat(result).hasSize(1);
     }
@@ -269,7 +269,7 @@ class MemberServiceTest {
         when(memberRepository.findAll())
                 .thenReturn(List.of(mockMember));
 
-        List<Member> result = memberService.findAll();
+        List<MemberCacheDto> result = memberService.findAll();
 
         assertThat(result).hasSize(1);
     }
