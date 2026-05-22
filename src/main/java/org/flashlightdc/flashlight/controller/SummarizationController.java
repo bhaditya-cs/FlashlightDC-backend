@@ -27,10 +27,10 @@ public class SummarizationController {
             @PathVariable String type,
             @PathVariable int number) {
         return billService.findByCongressAndTypeAndNumber(congress, type, String.valueOf(number))
-                .filter(bill -> bill.getSummary() != null && !bill.getSummary().isEmpty())
+                .filter(bill -> bill.summary() != null && !bill.summary().isEmpty())
                 .map(bill -> SummaryResponse.builder()
                         .billId(String.format("%d-%s-%d", congress, type, number))
-                        .summary(bill.getSummary())
+                        .summary(bill.summary())
                         .status("SUCCESS")
                         .build())
                 .map(Mono::just)

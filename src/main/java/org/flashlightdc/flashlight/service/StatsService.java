@@ -8,6 +8,7 @@ import org.flashlightdc.flashlight.repository.BillCountSnapshotRepository;
 import org.flashlightdc.flashlight.repository.BillRepository;
 import org.flashlightdc.flashlight.repository.StatCosponsorAveragesRepository;
 import org.flashlightdc.flashlight.repository.StatsRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -30,7 +31,7 @@ public class StatsService {
         this.snapshotRepository = snapshotRepository;
         this.statCosponsorAveragesRepository = statCosponsorAveragesRepository;
     }
-
+    @Cacheable(value = "stats", key = "#congress + '-party'")
     public List<PartyBreakdownDto> getPartyBreakdown(int congress) {
         return statsRepository.getPartyBreakdown(congress).stream()
                 .map(row -> new PartyBreakdownDto(
@@ -39,7 +40,7 @@ public class StatsService {
                 ))
                 .toList();
     }
-
+    @Cacheable(value = "stats", key = "#congress + '-state'")
     public List<StateLegislationDto> getStateLegislation(int congress) {
         return statsRepository.getStateLegislation(congress).stream()
                 .map(row -> new StateLegislationDto(
@@ -48,7 +49,7 @@ public class StatsService {
                 ))
                 .toList();
     }
-
+    @Cacheable(value = "stats", key = "#congress + '-cosponsor'")
     public CosponsorAveragesDto getCosponsorAverages(int congress) {
         return statCosponsorAveragesRepository
                 .findTopByCongressOrderByComputedAtDesc(congress)
@@ -71,7 +72,7 @@ public class StatsService {
                     );
                 });
     }
-
+    @Cacheable(value = "stats", key = "#congress + '-bills'")
     public BillStatsDto getBillStats(int congress) {
         long currentCount = billRepository.countByCongress(congress);
         long summarizedCount = billRepository.countByCongressAndSummaryIsNotNull(congress);

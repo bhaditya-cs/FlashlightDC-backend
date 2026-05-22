@@ -12,6 +12,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,7 +31,7 @@ class MemberControllerTest {
 
     private MemberListResponse mockListResponse;
     private Member mockMember;
-
+    private MemberCacheDto mockMemberCacheDto;
     @BeforeEach
     void setUp() {
         MemberDto mockMemberDto = new MemberDto(
@@ -54,6 +55,20 @@ class MemberControllerTest {
         mockMember.setName("Warnock, Raphael G.");
         mockMember.setPartyName("Democratic");
         mockMember.setState("Georgia");
+
+        mockMemberCacheDto = new MemberCacheDto(
+                mockMember.getBioguideId(),
+                mockMember.getName(),
+                mockMember.getPartyName(),
+                mockMember.getState(),
+                "1",
+                "1",
+                "",
+                "",
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyList()
+        );
     }
 
     // raw API endpoints
@@ -137,7 +152,7 @@ class MemberControllerTest {
     @Test
     void getMembers_NoParams_ShouldReturnAll() {
         when(memberService.findAll())
-                .thenReturn(List.of(mockMember));
+                .thenReturn(List.of(mockMemberCacheDto));
 
         webTestClient.get()
                 .uri("/api/members")
@@ -151,7 +166,7 @@ class MemberControllerTest {
     @Test
     void getMembers_FilterByParty_ShouldReturnFiltered() {
         when(memberService.findByParty("Democratic"))
-                .thenReturn(List.of(mockMember));
+                .thenReturn(List.of(mockMemberCacheDto));
 
         webTestClient.get()
                 .uri("/api/members?party=Democratic")
@@ -165,7 +180,7 @@ class MemberControllerTest {
     @Test
     void getMembers_FilterByState_ShouldReturnFiltered() {
         when(memberService.findByState("Georgia"))
-                .thenReturn(List.of(mockMember));
+                .thenReturn(List.of(mockMemberCacheDto));
 
         webTestClient.get()
                 .uri("/api/members?state=Georgia")
@@ -179,7 +194,7 @@ class MemberControllerTest {
     @Test
     void getMembers_FilterByPartyAndState_ShouldReturnFiltered() {
         when(memberService.findByPartyAndState("Democratic", "Georgia"))
-                .thenReturn(List.of(mockMember));
+                .thenReturn(List.of(mockMemberCacheDto));
 
         webTestClient.get()
                 .uri("/api/members?party=Democratic&state=Georgia")
@@ -207,7 +222,7 @@ class MemberControllerTest {
     @Test
     void getMember_WhenExists_ShouldReturnMember() {
         when(memberService.findById("W000790"))
-                .thenReturn(Optional.of(mockMember));
+                .thenReturn(Optional.of(mockMemberCacheDto));
 
         webTestClient.get()
                 .uri("/api/members/W000790")

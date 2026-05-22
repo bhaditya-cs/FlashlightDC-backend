@@ -36,5 +36,6 @@ build/
 .env
 *.zip
 billion-scraper-fdd07fd71de9.json
+docker-compose.local.yml
 ### MacOS ###
 .DS_Store

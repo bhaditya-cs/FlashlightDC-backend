@@ -1,6 +1,7 @@
 package org.flashlightdc.flashlight.service;
 
-import jakarta.transaction.Transactional;
+import org.flashlightdc.flashlight.util.RestResponsePage;
+import org.springframework.transaction.annotation.Transactional;
 import org.flashlightdc.flashlight.client.CongressApiClient;
 import org.flashlightdc.flashlight.dto.*;
 import org.flashlightdc.flashlight.entity.Bill;
@@ -11,12 +12,14 @@ import org.flashlightdc.flashlight.repository.BillRepository;
 import org.flashlightdc.flashlight.repository.CosponsorRepository;
 import org.flashlightdc.flashlight.repository.MemberRepository;
 import org.flashlightdc.flashlight.repository.SponsorRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.hibernate.Hibernate;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.List;
@@ -33,8 +36,11 @@ public class BillService {
     private final MemberRepository memberRepository;
     private final CosponsorRepository cosponsorRepository;
 
-    public BillService(CongressApiClient congressApiClient, BillRepository billRepository,
-                       SponsorRepository sponsorRepository, MemberRepository memberRepository, CosponsorRepository cosponsorRepository) {
+    public BillService(CongressApiClient congressApiClient,
+                       BillRepository billRepository,
+                       SponsorRepository sponsorRepository,
+                       MemberRepository memberRepository,
+                       CosponsorRepository cosponsorRepository) {
         this.congressApiClient = congressApiClient;
         this.billRepository = billRepository;
         this.sponsorRepository = sponsorRepository;
@@ -49,10 +55,37 @@ public class BillService {
     public Mono<BillDetailResponse> getBill(int congress, String type, int number) {
         return congressApiClient.getBill(congress, type, number);
     }
+    @Cacheable(value = "bills")
+    public RestResponsePage<BillCacheDto> findByCongressPaginated(Integer congress, Pageable pageable) {
+        return RestResponsePage.fromPage(billRepository.findByCongress(congress, pageable)
+                .map(this::toCacheDto));
+    }
+    @Cacheable(value = "billsByPolicyArea")
+    public RestResponsePage<BillCacheDto> findByPolicyAreaAndCongress(String policyArea, Integer congress, Pageable pageable) {
+        return  RestResponsePage.fromPage(billRepository.findByPolicyAreaAndCongress(policyArea, congress, pageable)
+                .map(this::toCacheDto));
+    }
+    @Cacheable(value = "billsAndSummaryIsNull")
+    public RestResponsePage<BillCacheDto> findByCongressAndSummaryIsNull(Integer congress, Pageable pageable) {
+        return  RestResponsePage.fromPage(billRepository.findByCongressAndSummaryIsNull(congress, pageable)
+                .map(this::toCacheDto));
+    }
 
+    public List<Bill> findByCongress(Integer congress) {
+        return billRepository.findByCongress(congress);
+    }
+
+    @Cacheable(value = "bill", key = "#congress + '-' + #type + '-' + #number")
+    @Transactional
+    public Optional<BillCacheDto> findByCongressAndTypeAndNumber(Integer congress, String type, String number) {
+        return billRepository
+                .findByCongressAndBillTypeAndBillNumber(congress, type, number)
+                .map(this::toCacheDto);
+    }
+
+    @CacheEvict(value = {"bills", "bill", "stats"}, allEntries = true)
     @Transactional
     public Bill saveBill(BillSummaryDto dto) {
-
         Bill bill = billRepository
                 .findByCongressAndBillTypeAndBillNumber(dto.congress(), dto.type(), dto.number())
                 .orElse(new Bill());
@@ -64,15 +97,13 @@ public class BillService {
         bill.setOriginChamber(dto.originChamber());
         bill.setIntroducedDate(dto.introducedDate());
         bill.setUpdatedAt(LocalDateTime.now());
-
-        if (dto.latestAction() != null) {
-            bill.setLatestActionDate(dto.latestAction().actionDate());
-            bill.setLatestActionText(dto.latestAction().text());
-        }
+        bill.setLatestActionDate(dto.latestAction() != null ? dto.latestAction().actionDate() : null);
+        bill.setLatestActionText(dto.latestAction() != null ? dto.latestAction().text() : null);
 
         return billRepository.save(bill);
     }
 
+    @CacheEvict(value = {"bills", "bill", "stats"}, allEntries = true)
     @Transactional
     public Bill saveBill(BillDetailDto dto) {
         Bill bill = billRepository
@@ -87,15 +118,9 @@ public class BillService {
         bill.setIntroducedDate(dto.introducedDate());
         bill.setUrl(dto.url());
         bill.setUpdatedAt(LocalDateTime.now());
-
-        if (dto.latestAction() != null) {
-            bill.setLatestActionDate(dto.latestAction().actionDate());
-            bill.setLatestActionText(dto.latestAction().text());
-        }
-
-        if (dto.policyArea() != null) {
-            bill.setPolicyArea(dto.policyArea().name());
-        }
+        bill.setLatestActionDate(dto.latestAction() != null ? dto.latestAction().actionDate() : null);
+        bill.setLatestActionText(dto.latestAction() != null ? dto.latestAction().text() : null);
+        bill.setPolicyArea(dto.policyArea() != null ? dto.policyArea().name() : null);
 
         bill = billRepository.save(bill);
 
@@ -135,6 +160,7 @@ public class BillService {
             }
         }
     }
+
     private void persistCosponsors(Bill bill, List<CosponsorDto> cosponsors) {
         for (CosponsorDto cosponsorDto : cosponsors) {
             Member member = memberRepository.findById(cosponsorDto.bioguideId())
@@ -188,26 +214,6 @@ public class BillService {
                 });
     }
 
-    public Page<Bill> findByCongressAndSummaryIsNull(Integer congress, Pageable pageable) {
-        return billRepository.findByCongressAndSummaryIsNull(congress, pageable);
-    }
-
-    public List<Bill> findByCongress(Integer congress) {
-        return billRepository.findByCongress(congress);
-    }
-
-    public Page<Bill> findByCongressPaginated(Integer congress, Pageable pageable) {
-        return billRepository.findByCongress(congress, pageable);
-    }
-
-    public Optional<Bill> findByCongressAndTypeAndNumber(Integer congress, String type, String number) {
-        return billRepository.findByCongressAndBillTypeAndBillNumber(congress, type, number);
-    }
-
-    public Page<Bill> findByPolicyAreaAndCongress(String policyArea, Integer congress, Pageable pageable) {
-        return billRepository.findByPolicyAreaAndCongress(policyArea, congress, pageable);
-    }
-
     public BillStatsResponse getStats(Integer congress) {
         long totalBills = billRepository.countByCongress(congress);
 
@@ -232,5 +238,78 @@ public class BillService {
                 .toList();
 
         return new BillStatsResponse(totalBills, billsThisMonth, recentAmendments, chamberBreakdown, popularTopics);
+    }
+
+    public BillDetailDto toDetailDto(Bill bill) {
+        List<SponsorDto> sponsors = bill.getSponsors().stream()
+                .map(s -> new SponsorDto(
+                        s.getMember().getBioguideId(),
+                        s.getMember().getName(),
+                        s.getMember().getPartyName(),
+                        s.getMember().getState(),
+                        s.getMember().getDistrict(),
+                        s.isByRequest(),
+                        s.getMember().getUrl()
+                ))
+                .toList();
+
+        List<CosponsorDto> cosponsors = bill.getCosponsors().stream()
+                .map(c -> new CosponsorDto(
+                        c.getMember().getBioguideId(),
+                        c.getMember().getName(),
+                        c.getMember().getPartyName(),
+                        c.getMember().getState(),
+                        c.getMember().getDistrict(),
+                        c.getSponsoredDate(),
+                        c.isOriginal(),
+                        c.getMember().getUrl()
+                ))
+                .toList();
+
+        return new BillDetailDto(
+                bill.getCongress(),
+                bill.getBillNumber(),
+                bill.getBillType(),
+                bill.getTitle(),
+                bill.getOriginChamber(),
+                bill.getIntroducedDate(),
+                bill.getLatestActionDate() != null
+                        ? new LatestActionDto(bill.getLatestActionDate(), bill.getLatestActionText(), null)
+                        : null,
+                sponsors,
+                cosponsors,
+                bill.getPolicyArea() != null ? new PolicyAreaDto(bill.getPolicyArea()) : null,
+                null,
+                null,
+                bill.getUrl()
+        );
+    }
+    public BillCacheDto toCacheDto(Bill bill) {
+        Hibernate.initialize(bill.getSponsors());
+        bill.getSponsors().forEach(s -> Hibernate.initialize(s.getMember()));
+        Hibernate.initialize(bill.getCosponsors());
+        bill.getCosponsors().forEach(c -> Hibernate.initialize(c.getMember()));
+        return new BillCacheDto(
+                bill.getId(),
+                bill.getCongress(),
+                bill.getBillNumber(),
+                bill.getBillType(),
+                bill.getTitle(),
+                bill.getOriginChamber(),
+                bill.getIntroducedDate(),
+                bill.getLatestActionDate(),
+                bill.getLatestActionText(),
+                bill.getPolicyArea(),
+                bill.getUrl(),
+                bill.getSummary(),
+                bill.getSummaryUpdatedAt(),
+                bill.getUpdatedAt(),
+                bill.getSponsors().stream()
+                        .map(s -> new SponsorshipCacheDto(s.getId(), s.isByRequest(), s.getMemberName(), s.getMemberState(), s.getMemberParty(), s.getMemberBioguideId()))
+                        .toList(),
+                bill.getCosponsors().stream()
+                        .map(c -> new CosponsorshipCacheDto(c.getId(), c.isOriginal(), c.getSponsoredDate(), c.getMemberName(), c.getMemberState(), c.getMemberParty(), c.getMemberBioguideId()))
+                        .toList()
+        );
     }
 }

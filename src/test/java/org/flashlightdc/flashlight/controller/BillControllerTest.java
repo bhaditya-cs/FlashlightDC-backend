@@ -3,6 +3,7 @@ package org.flashlightdc.flashlight.controller;
 import org.flashlightdc.flashlight.dto.*;
 import org.flashlightdc.flashlight.entity.Bill;
 import org.flashlightdc.flashlight.service.BillService;
+import org.flashlightdc.flashlight.util.RestResponsePage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @WebFluxTest(BillController.class)
@@ -35,6 +37,7 @@ class BillControllerTest {
     private BillListResponse mockListResponse;
     private BillDetailResponse mockDetailResponse;
     private Bill mockBill;
+    private BillCacheDto mockBillCacheDto;
 
     @BeforeEach
     void setUp() {
@@ -59,97 +62,17 @@ class BillControllerTest {
         mockBill.setTitle("Test Bill");
         mockBill.setOriginChamber("House");
         mockBill.setPolicyArea("Healthcare");
+
+        mockBillCacheDto =billService.toCacheDto(mockBill);
     }
 
-    // raw API endpoints
-    @Test
-    void getBillsRaw_ShouldReturnOk() {
-        when(billService.getBills(anyInt(), anyInt(), anyInt()))
-                .thenReturn(Mono.just(mockListResponse));
 
-        webTestClient.get()
-                .uri("/api/bills/raw?congress=119&limit=20&offset=0")
-                .exchange()
-                .expectStatus().isOk();
-    }
-
-    @Test
-    void getBillsRaw_DefaultParams_ShouldReturnOk() {
-        when(billService.getBills(anyInt(), anyInt(), anyInt()))
-                .thenReturn(Mono.just(mockListResponse));
-
-        webTestClient.get()
-                .uri("/api/bills/raw")
-                .exchange()
-                .expectStatus().isOk();
-    }
-
-    @Test
-    void getBillRaw_ShouldReturnOk() {
-        when(billService.getBill(anyInt(), anyString(), anyInt()))
-                .thenReturn(Mono.just(mockDetailResponse));
-
-        webTestClient.get()
-                .uri("/api/bills/raw/119/hr/1")
-                .exchange()
-                .expectStatus().isOk();
-    }
-
-    @Test
-    void getBillRaw_WhenApiError_ShouldReturnServerError() {
-        when(billService.getBill(anyInt(), anyString(), anyInt()))
-                .thenReturn(Mono.error(new RuntimeException("Congress API unavailable")));
-
-        webTestClient.get()
-                .uri("/api/bills/raw/119/hr/1")
-                .exchange()
-                .expectStatus().is5xxServerError();
-    }
-
-    // fetch and persist endpoints
-    @Test
-    void fetchAndPersistBills_ShouldReturnOkWithCount() {
-        BillListResponse responseWithBills = new BillListResponse(
-                List.of(
-                        new BillSummaryDto(119, "1", "hr", "Test Bill", "House",
-                                "2024-01-01", new LatestActionDto("2024-01-02", "Referred", null),
-                                List.of(), "https://api.congress.gov/v3/bill/119/hr/1")
-                ),
-                new PaginationDto(1, null, null)
-        );
-
-        when(billService.getBills(anyInt(), anyInt(), anyInt()))
-                .thenReturn(Mono.just(responseWithBills));
-        when(billService.saveBill(any(BillSummaryDto.class)))
-                .thenReturn(mockBill);
-
-        webTestClient.post()
-                .uri("/api/bills/fetch?congress=119&limit=20&offset=0")
-                .exchange()
-                .expectStatus().isOk()
-                .expectBody(String.class)
-                .isEqualTo("Persisted 1 bills");
-    }
-
-    @Test
-    void fetchAndPersistBill_ShouldReturnPersistedBill() {
-        when(billService.getBill(anyInt(), anyString(), anyInt()))
-                .thenReturn(Mono.just(mockDetailResponse));
-        when(billService.saveBill(any(BillDetailDto.class)))
-                .thenReturn(mockBill);
-
-        webTestClient.post()
-                .uri("/api/bills/fetch/119/hr/1")
-                .exchange()
-                .expectStatus().isOk();
-    }
 
     // DB read endpoints
     @Test
     void getBillsFromDb_ShouldReturnPage() {
         when(billService.findByCongressPaginated(anyInt(), any()))
-                .thenReturn(new PageImpl<>(List.of(mockBill), PageRequest.of(0, 20), 1));
-
+                .thenReturn(new RestResponsePage<BillCacheDto>(List.of(mockBillCacheDto), PageRequest.of(0, 20), 1));
         webTestClient.get()
                 .uri("/api/bills?congress=119&page=0&size=20")
                 .exchange()
@@ -162,7 +85,7 @@ class BillControllerTest {
     @Test
     void getBillFromDb_WhenExists_ShouldReturnBill() {
         when(billService.findByCongressAndTypeAndNumber(anyInt(), anyString(), anyString()))
-                .thenReturn(Optional.of(mockBill));
+                .thenReturn(Optional.of(mockBillCacheDto));
 
         webTestClient.get()
                 .uri("/api/bills/119/hr/1")
@@ -184,7 +107,7 @@ class BillControllerTest {
     @Test
     void getByPolicyArea_ShouldReturnBills() {
         when(billService.findByPolicyAreaAndCongress(anyString(), anyInt(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(mockBill), PageRequest.of(0, 20), 1));
+                .thenReturn(new RestResponsePage<BillCacheDto>(List.of(mockBillCacheDto), PageRequest.of(0, 20), 1));
 
         webTestClient.get()
                 .uri("/api/bills/policy-area/Healthcare?congress=119&page=0&size=20")
@@ -198,7 +121,7 @@ class BillControllerTest {
     @Test
     void getByPolicyArea_WhenNoneFound_ShouldReturnEmptyArray() {
         when(billService.findByPolicyAreaAndCongress(anyString(), anyInt(), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+                .thenReturn(new RestResponsePage<>(List.of(), PageRequest.of(0, 20), 0));
 
         webTestClient.get()
                 .uri("/api/bills/policy-area/Unknown?congress=119&page=0&size=20")

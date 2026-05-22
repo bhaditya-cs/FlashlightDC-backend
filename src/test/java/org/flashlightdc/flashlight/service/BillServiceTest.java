@@ -253,7 +253,7 @@ class BillServiceTest {
         when(billRepository.findByCongressAndSummaryIsNull(119, pageable))
                 .thenReturn(new PageImpl<>(List.of(mockBill), pageable, 1));
 
-        Page<Bill> result = billService.findByCongressAndSummaryIsNull(119, pageable);
+        Page<BillCacheDto> result = billService.findByCongressAndSummaryIsNull(119, pageable);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
     }
@@ -320,7 +320,7 @@ class BillServiceTest {
         when(billRepository.findByCongress(119, pageable))
                 .thenReturn(new PageImpl<>(List.of(mockBill), pageable, 1));
 
-        Page<Bill> result = billService.findByCongressPaginated(119, pageable);
+        Page<BillCacheDto> result = billService.findByCongressPaginated(119, pageable);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent()).hasSize(1);
@@ -331,10 +331,10 @@ class BillServiceTest {
         when(billRepository.findByCongressAndBillTypeAndBillNumber(119, "hr", "1"))
                 .thenReturn(Optional.of(mockBill));
 
-        Optional<Bill> result = billService.findByCongressAndTypeAndNumber(119, "hr", "1");
+        Optional<BillCacheDto> result = billService.findByCongressAndTypeAndNumber(119, "hr", "1");
 
         assertThat(result).isPresent();
-        assertThat(result.get().getBillNumber()).isEqualTo("1");
+        assertThat(result.get().billNumber()).isEqualTo("1");
     }
 
     @Test
@@ -342,7 +342,7 @@ class BillServiceTest {
         when(billRepository.findByCongressAndBillTypeAndBillNumber(anyInt(), anyString(), anyString()))
                 .thenReturn(Optional.empty());
 
-        Optional<Bill> result = billService.findByCongressAndTypeAndNumber(119, "hr", "9999");
+        Optional<BillCacheDto> result = billService.findByCongressAndTypeAndNumber(119, "hr", "9999");
 
         assertThat(result).isEmpty();
     }
@@ -353,9 +353,9 @@ class BillServiceTest {
         when(billRepository.findByPolicyAreaAndCongress("Healthcare", 119, pageable))
                 .thenReturn(new PageImpl<>(List.of(mockBill), pageable, 1));
 
-        Page<Bill> result = billService.findByPolicyAreaAndCongress("Healthcare", 119, pageable);
+        Page<BillCacheDto> result = billService.findByPolicyAreaAndCongress("Healthcare", 119, pageable);
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).getPolicyArea()).isEqualTo("Healthcare");
+        assertThat(result.getContent().get(0).policyArea()).isEqualTo("Healthcare");
     }
 }
